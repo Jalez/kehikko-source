@@ -85,13 +85,24 @@ export const VERSION = '1.0.0'
  * shapes and activity records a module will render. This app renders none of
  * them; it renders a file. So the list is honestly empty.
  *
- * What is missing from the protocol at the time of writing is a way to declare
- * which parts of the CONTEXT a module follows, which for this one is the whole
- * of its behaviour and is currently visible only by reading its source. There is
- * no field for it in `declares` in protocol 2 / package 0.13.0, and inventing
- * one would mean writing a key every host ignores and every reader mistakes for
- * a contract. If such a field lands, this module should be among the first to
- * fill it in, and the value is `passage`.
+ * Which parts of the CONTEXT a module follows is a different question, and it
+ * has an answer now: `reacts`, added in package 0.14.0 while this module was
+ * being written. This file previously recorded the field as missing and said
+ * that if it landed, this module should be among the first to fill it in and
+ * the value would be `passage`. It landed; the value is `passage`; it is filled
+ * in below.
+ *
+ * That declaration is the whole of this module's behaviour, and it was
+ * previously visible only by reading the source. This app is the purest
+ * consumer on the canvas — it produces nothing, asks the host for nothing, and
+ * does exactly one thing in response to one field. A registry that could not
+ * say so was a registry in which the most one-sided relationship in the
+ * workspace looked like no relationship at all.
+ *
+ * It is a claim about this program, not a permission over anything: the host
+ * broadcasts the context to every framed module whatever this says, and a
+ * module that left the word out would behave identically. The protocol's own
+ * essay on `reacts` refuses that temptation at length.
  *
  * ## `prompt: false`
  *
@@ -189,6 +200,8 @@ export const MANIFEST: Manifest = manifestSchema.parse({
     about: 'What the Source container on the canvas is showing of a file, with its bounds and its line numbers.',
   },
   extensions: { emits: [], consumes: [] },
+  /** The one field this app follows, and the whole of what it does. See above. */
+  reacts: ['passage'],
   declares: {
     protocol: `>=${PROTOCOL} <${PROTOCOL + 1}`,
     /* Empty, and the essay above is mostly about why. This module calls nothing
