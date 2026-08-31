@@ -1,0 +1,268 @@
+@import 'tailwindcss';
+
+/**
+ * The palette, in shadcn's own token names, plus the two things this module has
+ * that its siblings do not: a syntax theme, and a rule about long lines.
+ *
+ * ## Container queries, not viewport breakpoints
+ *
+ * This page's normal case is a container 220 to 500 pixels wide inside somebody's
+ * canvas, on a monitor two thousand pixels across. Every viewport breakpoint
+ * Tailwind ships would therefore fire — `lg:` is true, `xl:` is true — and the
+ * page would lay itself out for a screen it has three per cent of. So the root
+ * element is a container, every responsive class in this app is a `@container`
+ * class, and the only thing any of them ever measures is the container.
+ *
+ * Height is NOT done this way, and cannot be. A container query on inline size
+ * says nothing about how tall the frame is, and this module's height-dependent
+ * decisions — whether the header earns its strip, how tight the lines are — need
+ * a number rather than a breakpoint. That is a `ResizeObserver` in `app.tsx`
+ * feeding the pure function in `view/room.ts`.
+ *
+ * ## Nothing overflows sideways, ever, and this is the module where that is hard
+ *
+ * A file tree can truncate a name with an ellipsis. A file viewer cannot: the
+ * end of a line of code is not decoration, and a viewer that hid it would be
+ * lying about the file in the one place somebody is looking to find out what it
+ * says. The other escape is a horizontal scrollbar, which this workspace does not
+ * do and which is miserable at 220 pixels regardless.
+ *
+ * So lines WRAP. `white-space: pre-wrap` keeps every space and tab that is in the
+ * file, and `overflow-wrap: anywhere` breaks inside a token when a token is wider
+ * than the container — which happens constantly here, because a minified bundle
+ * is one token a hundred thousand characters long. `anywhere` rather than
+ * `break-word` because `break-word` only breaks a word that could not fit on a
+ * line of its own, and leaves a long unbroken string to overflow. That
+ * distinction is the entire difference between this rule working and this rule
+ * appearing to work.
+ *
+ * The consequence is that lines have different heights, which is why this page
+ * does not virtualize — see the essay in `view/code.tsx`.
+ *
+ * ## The syntax theme is written here rather than imported
+ *
+ * highlight.js ships a hundred themes as CSS files, and every one of them is
+ * written for a page: fixed colours, a background of its own, and no idea that
+ * this container is drawn light or dark according to what a host said a moment
+ * ago. Importing one would mean a dark theme on a light canvas half the time,
+ * and a second source of truth about what a background is.
+ *
+ * So the classes highlight.js emits are given colours from THIS app's tokens,
+ * which follow the host's theme like everything else. There are eight rules
+ * rather than forty: at 220 pixels wide, in text this small, more than a handful
+ * of hues is noise competing with the thing on screen worth reading. Every
+ * `hljs-` class not named below simply inherits the foreground colour, which is
+ * the correct default and is why there is no catch-all.
+ */
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --radius: 0.5rem;
+
+  /*
+   * The range a passage carries, drawn as a background rather than as a text
+   * colour.
+   *
+   * A background is what a reader's eye finds in one pass across forty lines,
+   * and a coloured foreground would be competing with the syntax colours it sits
+   * among — the highlight would be least visible on exactly the tokens the
+   * highlighter had already coloured. It is deliberately pale: it has to survive
+   * having six syntax colours drawn on top of it and still be legible, which a
+   * saturated block is not.
+   */
+  --mark: oklch(0.93 0.06 95);
+  --mark-edge: oklch(0.78 0.13 80);
+
+  /* The syntax palette, and it is four hues on purpose. */
+  --syntax-keyword: oklch(0.5 0.16 300);
+  --syntax-string: oklch(0.52 0.13 150);
+  --syntax-number: oklch(0.55 0.13 40);
+  --syntax-comment: oklch(0.62 0.02 260);
+  --syntax-name: oklch(0.48 0.13 250);
+}
+
+/*
+ * Dark, twice.
+ *
+ * `.dark` is set by the wire when a host says so, and the media query is what
+ * answers before any host has spoken — a page opened directly, or a frame in its
+ * first hundred milliseconds. `.light` is the escape hatch that makes a host's
+ * explicit "light" beat a machine set to dark, which is why the media query is
+ * guarded on its absence rather than left to win.
+ */
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --background: oklch(0.145 0 0);
+    --foreground: oklch(0.985 0 0);
+    --card: oklch(0.205 0 0);
+    --card-foreground: oklch(0.985 0 0);
+    --muted: oklch(0.269 0 0);
+    --muted-foreground: oklch(0.708 0 0);
+    --border: oklch(1 0 0 / 12%);
+    --input: oklch(1 0 0 / 15%);
+    --ring: oklch(0.556 0 0);
+    --accent: oklch(0.269 0 0);
+    --accent-foreground: oklch(0.985 0 0);
+    --primary: oklch(0.985 0 0);
+    --primary-foreground: oklch(0.205 0 0);
+    --mark: oklch(0.36 0.06 95);
+    --mark-edge: oklch(0.6 0.12 85);
+    --syntax-keyword: oklch(0.75 0.13 300);
+    --syntax-string: oklch(0.78 0.12 150);
+    --syntax-number: oklch(0.78 0.11 55);
+    --syntax-comment: oklch(0.58 0.02 260);
+    --syntax-name: oklch(0.76 0.11 240);
+  }
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.985 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --mark: oklch(0.36 0.06 95);
+  --mark-edge: oklch(0.6 0.12 85);
+  --syntax-keyword: oklch(0.75 0.13 300);
+  --syntax-string: oklch(0.78 0.12 150);
+  --syntax-number: oklch(0.78 0.11 55);
+  --syntax-comment: oklch(0.58 0.02 260);
+  --syntax-name: oklch(0.76 0.11 240);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-mark: var(--mark);
+  --color-mark-edge: var(--mark-edge);
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html,
+  body {
+    background: var(--background);
+    color: var(--foreground);
+  }
+
+  /*
+   * The container every responsive class in this app measures.
+   *
+   * On `#root` rather than on `body`, which is a departure from some sibling
+   * modules and is deliberate. `body` here carries `overflow: hidden` and a fixed
+   * height — see the essay in `page/document.ts` — and a container that is also
+   * the overflow root is a container whose size can be affected by the thing
+   * measuring it. `#root` is the outermost element this app actually lays out, so
+   * it is the honest one to measure.
+   *
+   * Named, so a `@sm/container:` class cannot accidentally attach itself to some
+   * nested container a component introduces later.
+   */
+  #root {
+    container: container / inline-size;
+    font-synthesis-weight: none;
+    text-rendering: optimizeLegibility;
+  }
+}
+
+/*
+ * The eight rules the highlighter's output actually lands on.
+ *
+ * highlight.js emits about forty class names and they group into far fewer
+ * ideas. Grouping them here rather than colouring each one is what keeps a
+ * 220-pixel column from looking like a paint chart — and it means a language
+ * this app has never seen gets sensible colours for free, because every grammar
+ * uses the same handful of names for the same handful of ideas.
+ */
+@layer components {
+  .hljs-comment,
+  .hljs-quote {
+    color: var(--syntax-comment);
+    font-style: italic;
+  }
+
+  .hljs-keyword,
+  .hljs-selector-tag,
+  .hljs-literal,
+  .hljs-built_in,
+  .hljs-doctag,
+  .hljs-meta {
+    color: var(--syntax-keyword);
+  }
+
+  .hljs-string,
+  .hljs-regexp,
+  .hljs-addition,
+  .hljs-attribute,
+  .hljs-meta .hljs-string {
+    color: var(--syntax-string);
+  }
+
+  .hljs-number,
+  .hljs-symbol,
+  .hljs-bullet,
+  .hljs-link,
+  .hljs-deletion,
+  .hljs-variable,
+  .hljs-template-variable {
+    color: var(--syntax-number);
+  }
+
+  .hljs-title,
+  .hljs-section,
+  .hljs-name,
+  .hljs-selector-id,
+  .hljs-selector-class,
+  .hljs-type,
+  .hljs-attr,
+  .hljs-tag {
+    color: var(--syntax-name);
+  }
+
+  .hljs-emphasis {
+    font-style: italic;
+  }
+
+  .hljs-strong {
+    font-weight: 600;
+  }
+}
