@@ -16,7 +16,7 @@ points the canvas at one when you press it. This one shows what is in it.
 bun run register.ts      # tell the host on this machine where it is
 ```
 
-Then reload the host; it sweeps `~/.roadmap/modules` on every read.
+Then reload the host; it sweeps `~/Library/Application Support/Kehikot/modules` on every read.
 
 ---
 
@@ -120,7 +120,7 @@ bun run typecheck
 | --- | --- |
 | `PORT` | where to listen. Default 7980, which is also what `register.ts` writes |
 | `SOURCE_ROOTS` | colon-separated absolute directories this app may be pointed at. Unset means "whatever the host names", which is the default and the honest one |
-| `ROADMAP_ORIGIN` | who may frame this page. Default is the host in this workspace |
+| `KEHIKOT_ORIGINS` | who may frame this page. Default is the host in this workspace |
 
 `SOURCE_ROOTS` never affects the other fence, which is unconditional: whatever
 the root is, no path in any request can leave it.

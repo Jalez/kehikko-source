@@ -78,7 +78,7 @@ describe('/healthz', () => {
   test('says what this app is, and does not say where its roots are', () => {
     const body = get('/healthz')?.body as Record<string, unknown>
     expect(body.ok).toBe(true)
-    expect(body.id).toBe('roadmap.source')
+    expect(body.id).toBe('kehikot.source')
     expect(body.writes).toContain('none')
     /* A health check is the least authenticated door on this port. Printing the
        directories somebody's roots are set to would make it reconnaissance. */
@@ -140,7 +140,7 @@ describe('/mcp', () => {
 
   test('initialize names the module and says what it is for', () => {
     const body = rpc('initialize')?.body as { result: { serverInfo: { name: string }; instructions: string } }
-    expect(body.result.serverInfo.name).toBe('roadmap.source')
+    expect(body.result.serverInfo.name).toBe('kehikot.source')
     expect(body.result.instructions).toContain('read-only')
   })
 

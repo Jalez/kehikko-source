@@ -1,8 +1,8 @@
-import { MANIFEST_KIND, PROTOCOL, manifestSchema, type Manifest } from 'roadmap-module-protocol'
+import { MANIFEST_KIND, PROTOCOL, manifestSchema, type Manifest } from 'kehikot-module-protocol'
 
 import { MAX_BYTES, bytes } from './file/shape.ts'
 
-export const ID = 'roadmap.source'
+export const ID = 'kehikot.source'
 export const VERSION = '1.0.0'
 
 /**
@@ -114,7 +114,7 @@ export const VERSION = '1.0.0'
  * ## The mode is epic-scoped, because the context only arrives there
  *
  * One mode, which becomes an ordinary tab in the mode row. `scope: 'epic'`
- * because an epic-scoped mode is the one that receives `roadmap.context` — and
+ * because an epic-scoped mode is the one that receives `kehikot.context` — and
  * the context is the only thing this module has. A `global` mode is never sent
  * one, which for this app means a container that can never learn what to show.
  *

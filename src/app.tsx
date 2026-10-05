@@ -8,7 +8,7 @@ import { useSource } from '@/use-source.ts'
 import { Code } from '@/view/code.tsx'
 import { label, room as measure } from '@/view/room.ts'
 import { Binary, EmptyFile, Folder, Listening, NoPassage, NoProject, Trouble } from '@/view/screens.tsx'
-import { useRoadmap, type GotoHandler } from '@/wire/use-roadmap.ts'
+import { useKehikot, type GotoHandler } from '@/wire/use-kehikot.ts'
 
 /**
  * The tallest frame this container will ever ask a host for, and the strips
@@ -37,7 +37,7 @@ const CHROME = 44
  * showing the right one.
  *
  * The thing it refuses is to point. There is no `passage.set` in this module,
- * anywhere: `manifest.ts` argues the case and `wire/use-roadmap.ts` has no
+ * anywhere: `manifest.ts` argues the case and `wire/use-kehikot.ts` has no
  * method to call. This is the purest consumer on the canvas and the absence is
  * the design. If a press is ever added here, the question to answer first is
  * what happens when the container next door disagrees.
@@ -64,7 +64,7 @@ export function App() {
     )
   }, [])
 
-  const { where, projectPath, passage, resize } = useRoadmap(ID, onGoto)
+  const { where, projectPath, passage, resize } = useKehikot(ID, onGoto)
   const { seen, trouble } = useSource(projectPath, passage)
 
   /*

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-import type { Passage } from '@/wire/use-roadmap.ts'
+import type { Passage } from '@/wire/use-kehikot.ts'
 
 /**
  * One file, fetched from this app's own door, and nothing else kept.

@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
-import { mkdirSync, writeFileSync } from 'node:fs'
-import { homedir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+
+import { originFor, registerAt } from 'kehikot-module-protocol/serve'
 
 import { ID } from './manifest.ts'
 
@@ -19,8 +19,8 @@ import { ID } from './manifest.ts'
  * ## The filename is the module id
  *
  * Not a field inside the file — the NAME. A host sweeps the directory and takes
- * the id from the filename, so `roadmap.source.json` is what makes this
- * `roadmap.source`. Two files naming the same port under different names are two
+ * the id from the filename, so `kehikot.source.json` is what makes this
+ * `kehikot.source`. Two files naming the same port under different names are two
  * modules as far as a host is concerned.
  *
  * ## `dir` as well as `url`
@@ -35,16 +35,15 @@ import { ID } from './manifest.ts'
  * It is this file's own location rather than a string, so a checkout moved or
  * cloned somewhere else registers itself correctly by being run.
  *
- * ## Where a host looks
+ * ## Where a host looks is not copied into this file
  *
- * This line must say exactly what a host's own registry sweep says, and it is
- * copied rather than imported because this directory is meant to stand alone.
- * Writing to the wrong directory is the worst failure a module can have: the host
- * finds nothing, and finds it silently.
- */
-const registryDir = process.env.ROADMAP_MODULES_DIR ?? join(homedir(), '.roadmap', 'modules')
-
-/**
+ * The registry directory, the filename-carries-the-id rule and the shape of the
+ * document are all in `kehikot-module-protocol/serve` (`registerAt`), so this
+ * file cannot disagree with a host about them by a character. Writing to the
+ * wrong directory is the worst failure a module can have: the host finds
+ * nothing, and finds it silently. `KEHIKOT_MODULES_DIR` points it somewhere
+ * disposable.
+ *
  * 7980, and the number is not arbitrary.
  *
  * 7820 through 7970 are the other modules on this machine, and the explorer this
@@ -54,11 +53,12 @@ const registryDir = process.env.ROADMAP_MODULES_DIR ?? join(homedir(), '.roadmap
  * defaults to the same number for the same reason, and the two must not drift.
  */
 const port = Number(process.env.PORT ?? 7980)
-const origin = `http://127.0.0.1:${port}`
-const dir = dirname(fileURLToPath(import.meta.url))
+const written = registerAt({
+  id: ID,
+  origin: originFor(port),
+  dir: dirname(fileURLToPath(import.meta.url)),
+})
 
-mkdirSync(registryDir, { recursive: true })
-const file = join(registryDir, `${ID}.json`)
-writeFileSync(file, `${JSON.stringify({ url: origin, dir }, null, 2)}\n`)
-console.log(`registered: ${file} -> ${origin} (${dir})`)
+console.log(`registered: ${written.file} -> ${written.url} (${written.dir})`)
+if (written.was) console.log(`  (was ${written.was.url} in ${written.was.dir})`)
 console.log('Start the app with ./run.sh, then reload the host; it sweeps the directory on every read.')
