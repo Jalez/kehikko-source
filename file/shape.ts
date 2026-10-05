@@ -35,7 +35,7 @@ export const MAX_PATH = 4096
  * so the honest place to stop is before it starts.
  *
  * A quarter of a megabyte is also a comfortable amount of source. Every file in
- * this repository, every file in the roadmap host, and every chapter of the
+ * this repository, every file in the Kehikot host, and every chapter of the
  * thesis this workspace was built around fits under it with room to spare. What
  * does not fit is exactly the class of file nobody reads top to bottom anyway.
  *

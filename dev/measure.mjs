@@ -41,7 +41,7 @@ const THESIS = '/Users/jaakkorajala/Claude/Projects/CS-DEGREE/05_drafts/thesis_l
 const SUBJECTS = [
   { what: 'this module’s longest source', project: HERE, file: `${HERE}/file/read.ts` },
   { what: 'a lock file, very long lines', project: HERE, file: `${HERE}/bun.lock` },
-  { what: 'the host, TypeScript', project: '/Users/jaakkorajala/Projects/roadmap', file: null },
+  { what: 'the host, TypeScript', project: '/Users/jaakkorajala/Projects/kehikko', file: null },
   { what: 'the thesis, LaTeX', project: THESIS, file: null },
 ]
 
@@ -53,13 +53,13 @@ const host = (size) => `<!doctype html>
   const frame = document.getElementById('frame')
   window.__point = (projectPath, passage) => {
     frame.contentWindow.postMessage({
-      type: 'roadmap.context', protocol: 2, epic: null, project: 'measured',
+      type: 'kehikot.context', protocol: 2, epic: null, project: 'measured',
       projectPath, theme: 'light', passage, prompt: null,
     }, '*')
   }
   frame.addEventListener('load', () => {
     frame.contentWindow.postMessage({
-      type: 'roadmap.hello', protocol: 2, session: 'measure', state: null,
+      type: 'kehikot.hello', protocol: 2, session: 'measure', state: null,
       context: { epic: null, project: 'measured', projectPath: null, theme: 'light', passage: null, prompt: null },
     }, '*')
   })
@@ -90,7 +90,7 @@ const findIn = (dir, extensions, depth = 2) => {
   return null
 }
 
-SUBJECTS[2].file = findIn('/Users/jaakkorajala/Projects/roadmap/src', ['.ts', '.tsx']) ?? null
+SUBJECTS[2].file = findIn('/Users/jaakkorajala/Projects/kehikko/src', ['.ts', '.tsx']) ?? null
 SUBJECTS[3].file = findIn(THESIS, ['.tex']) ?? null
 
 const rows = []

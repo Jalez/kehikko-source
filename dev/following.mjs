@@ -11,7 +11,7 @@
  *
  * The only honest way to check a claim about runtime behaviour is to sit where
  * the host sits. So this page IS a host: it frames `/app`, greets it, records
- * every `roadmap.request` the frame sends, and then walks the module through the
+ * every `kehikot.request` the frame sends, and then walks the module through the
  * states it exists to be right about.
  *
  * ## What it establishes
@@ -45,14 +45,14 @@ const PROJECT = process.argv[2] ?? '/Users/jaakkorajala/Projects/kehikko-source'
  *
  * ## It greets on `load`, and that order is not interchangeable
  *
- * The obvious version greets when `roadmap.ready` arrives, and it waits forever:
+ * The obvious version greets when `kehikot.ready` arrives, and it waits forever:
  * the client sends `ready` in ANSWER to a greeting, naming the protocol it was
  * greeted with, so a host waiting for one is two programs each waiting for the
  * other. A real host greets on the frame's `load` event, which is exactly why the
  * client installs its listener at module scope — see the essay in
  * `src/main.tsx`.
  *
- * ## The greeting wraps its context and `roadmap.context` does not
+ * ## The greeting wraps its context and `kehikot.context` does not
  *
  * The greeting carries `context: {...}`; a later context IS the context with two
  * envelope fields added. Assuming symmetry there costs an afternoon, so the two
@@ -72,7 +72,7 @@ const HOST = `<!doctype html>
   })
   window.__point = (passage) => {
     frame.contentWindow.postMessage({
-      type: 'roadmap.context',
+      type: 'kehikot.context',
       protocol: 2,
       epic: null,
       project: 'measured',
@@ -84,7 +84,7 @@ const HOST = `<!doctype html>
   }
   frame.addEventListener('load', () => {
     frame.contentWindow.postMessage({
-      type: 'roadmap.hello',
+      type: 'kehikot.hello',
       protocol: 2,
       session: 'following',
       state: null,
@@ -126,7 +126,7 @@ await page.goto('http://localhost:4181/source-probe', { waitUntil: 'domcontentlo
 
 const frame = page.frameLocator('#frame')
 const point = (passage) => page.evaluate((one) => window.__point(one), passage)
-const requests = () => page.evaluate(() => window.__sent.filter((m) => m.type === 'roadmap.request'))
+const requests = () => page.evaluate(() => window.__sent.filter((m) => m.type === 'kehikot.request'))
 
 /**
  * Waiting for the header to name a particular file.

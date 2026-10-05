@@ -55,11 +55,11 @@ const HOST = `<!doctype html>
 <script>
   const frame = document.getElementById('frame')
   window.__point = (passage) => frame.contentWindow.postMessage({
-    type: 'roadmap.context', protocol: 2, epic: null, project: 'awkward',
+    type: 'kehikot.context', protocol: 2, epic: null, project: 'awkward',
     projectPath: ${JSON.stringify(project)}, theme: 'light', passage, prompt: null,
   }, '*')
   frame.addEventListener('load', () => frame.contentWindow.postMessage({
-    type: 'roadmap.hello', protocol: 2, session: 'awkward', state: null,
+    type: 'kehikot.hello', protocol: 2, session: 'awkward', state: null,
     context: { epic: null, project: 'awkward', projectPath: ${JSON.stringify(project)},
       theme: 'light', passage: null, prompt: null },
   }, '*'))
