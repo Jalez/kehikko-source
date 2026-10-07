@@ -167,6 +167,8 @@ export const MANIFEST: Manifest = manifestSchema.parse({
   id: ID,
   name: 'Source',
   version: VERSION,
+  /* Where a host files this module in its list, most fitting first. */
+  tags: ['code'],
   summary:
     'The file the canvas is pointed at, shown — with the range a passage carries highlighted. It reads and never writes.',
   /**
