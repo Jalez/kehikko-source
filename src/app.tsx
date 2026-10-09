@@ -131,10 +131,8 @@ export function App() {
    * There is no press on any of them, deliberately: a box to type a path into would make this a
    * viewer that can disagree with the canvas about which file is open.
    */
-  const cover: CoverState | null =
-    server === 'stale'
-      ? 'stale'
-      : (coverFor({ where, projectPath }) ?? (server === 'down' && passage ? 'down' : null))
+  const ready: CoverState | null = coverFor({ where, projectPath, server })
+  const cover = ready === 'down' && !passage ? null : ready
   if (cover && cover !== 'down') return <Cover state={cover} name="Source" />
 
   const shown = text && projectPath ? label(text.path, projectPath, room.name) : ''
