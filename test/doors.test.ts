@@ -3,7 +3,9 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { answer } from '../doors.ts'
+import { doorsHandler } from 'kehikot-module-protocol/serve'
+
+import { BUILD, answer } from '../doors.ts'
 import { MANIFEST } from '../manifest.ts'
 
 /**
@@ -193,5 +195,55 @@ describe('/mcp', () => {
   test('a body that is not a request is refused as one', () => {
     const reply = answer('POST', '/mcp', new URLSearchParams(), null)
     expect(reply?.status).toBe(400)
+  })
+})
+
+/*
+ * The doors as they are actually served: the protocol's `doorsHandler` over this module's
+ * `answer`, with the same options `vite.config.ts` hands to `doors()`. What is asserted is this
+ * module's half — no ticket in a page that never writes, the build said in every place a host or
+ * the page reads it — rather than the protocol's own behaviour, which its own tests cover.
+ */
+describe('served through the protocol’s doors', () => {
+  const handler = doorsHandler({ manifest: MANIFEST, answer, build: BUILD, page: { title: 'Source', head: '<style>html, body, #root { height: 100%; }</style>' } })
+  const get = (url: string) =>
+    new Promise<{ status: number; headers: Record<string, string>; text: string }>((resolve, reject) => {
+      const headers: Record<string, string> = {}
+      const response = {
+        statusCode: 0,
+        setHeader: (name: string, value: string) => void (headers[name] = value),
+        write: () => {},
+        end: (chunk?: string | Uint8Array) => resolve({ status: response.statusCode, headers, text: typeof chunk === 'string' ? chunk : '' }),
+      }
+      const request = { url, method: 'GET', headers: {}, on: () => request, [Symbol.asyncIterator]: async function* () {} }
+      handler(request as never, response, (error) => reject(error ?? new Error(`${url} was handed on`)))
+    })
+
+  test('the page carries the build, the height rules and no ticket, and is never cached', async () => {
+    const page = await get('/app')
+    expect(page.status).toBe(200)
+    expect(page.headers['cache-control']).toBe('no-store')
+    expect(page.headers['content-security-policy']).toContain('frame-ancestors')
+    expect(page.text).toContain('<title>Source</title>')
+    expect(page.text).toContain('#root { height: 100%; }')
+    expect(page.text).toContain('<script id="build" type="application/json">')
+    /* No writes, so no ticket: there is nothing for one to gate. */
+    expect(page.text).not.toContain('id="ticket"')
+  })
+
+  test('the health check and every answer say which build is answering', async () => {
+    const health = await get('/healthz')
+    const body = JSON.parse(health.text) as { ok: boolean; build: { version: string; protocol: string; started: string } }
+    expect(body.ok).toBe(true)
+    expect(body.build).toEqual(BUILD)
+    expect(body.build.protocol).toBe('0.35.0')
+    expect(health.headers['x-module-build']).toBeTruthy()
+  })
+
+  test('the manifest is served at both well-known paths, with the build', async () => {
+    const now = JSON.parse((await get('/.well-known/kehikot-module.json')).text) as { id: string; build: unknown }
+    expect(now.id).toBe('kehikot.source')
+    expect(now.build).toEqual(BUILD)
+    expect((await get('/.well-known/roadmap-module.json')).status).toBe(200)
   })
 })

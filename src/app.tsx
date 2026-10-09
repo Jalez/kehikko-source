@@ -1,3 +1,5 @@
+import type { HostEvents } from 'kehikot-module-protocol/client'
+import { Cover, coverFor, useHost, useServerStanding, type CoverState } from 'kehikot-module-protocol/client/react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { bytes } from '../file/shape.ts'
@@ -7,8 +9,10 @@ import { Button } from '@/components/ui/button.tsx'
 import { useSource } from '@/use-source.ts'
 import { Code } from '@/view/code.tsx'
 import { label, room as measure } from '@/view/room.ts'
-import { Binary, EmptyFile, Folder, Listening, NoPassage, NoProject, Trouble } from '@/view/screens.tsx'
-import { useKehikot, type GotoHandler } from '@/wire/use-kehikot.ts'
+import { Binary, EmptyFile, Folder, NoPassage, Trouble } from '@/view/screens.tsx'
+
+/** What to do when the host says "go to this reference". The contract is the protocol's: `answer` must be called. */
+type GotoHandler = NonNullable<HostEvents['onGoto']>
 
 /**
  * The tallest frame this container will ever ask a host for, and the strips
@@ -19,7 +23,7 @@ import { useKehikot, type GotoHandler } from '@/wire/use-kehikot.ts'
  * pixels, and asking a host for that on behalf of a container in the corner of a
  * canvas is absurd. So it asks for what it would like up to this, and scrolls
  * internally past it — the arrangement a sidebar has, and the reason
- * `page/document.ts` makes the body a fixed-height non-scrolling box.
+ * `PAGE_HEAD` in `vite.config.ts` makes the body a fixed-height non-scrolling box.
  */
 const MOST_WE_WILL_ASK_FOR = 420
 /** The header, and the notice line when there is one. */
@@ -37,8 +41,8 @@ const CHROME = 44
  * showing the right one.
  *
  * The thing it refuses is to point. There is no `passage.set` in this module,
- * anywhere: `manifest.ts` argues the case and `wire/use-kehikot.ts` has no
- * method to call. This is the purest consumer on the canvas and the absence is
+ * anywhere: `manifest.ts` argues the case, and the `point` the protocol's
+ * `useHost` offers is deliberately never taken off it below. This is the purest consumer on the canvas and the absence is
  * the design. If a press is ever added here, the question to answer first is
  * what happens when the container next door disagrees.
  *
@@ -64,8 +68,13 @@ export function App() {
     )
   }, [])
 
-  const { where, projectPath, passage, resize } = useKehikot(ID, onGoto)
-  const { seen, trouble } = useSource(projectPath, passage)
+  /* The protocol's host hook: where the page stands, the theme on `<html>`, the flattened context.
+     The passage is applied on every context including when it is null, and never remembered: a
+     container that held onto the last one would go on showing a file the reader closed. */
+  const { where, projectPath, passage, resize } = useHost(ID, { onGoto })
+  /* How this page's own server last answered: `down` when nothing did, `stale` when it restarted under this page. */
+  const server = useServerStanding()
+  const { seen, trouble, retry } = useSource(projectPath, passage)
 
   /*
    * The scroll container, measured on both axes.
@@ -114,24 +123,41 @@ export function App() {
     resize(wanted + CHROME)
   }, [resize, text, lastLine, size.height, room.dense])
 
-  if (where === 'listening') return <Listening />
-  if (!projectPath) return <NoProject unhosted={where === 'unhosted'} />
-  if (!passage) return <NoPassage />
-  if (trouble) return <Trouble said={trouble} />
-  if (seen?.kind === 'folder') return <Folder />
-  if (seen?.kind === 'binary') return <Binary size={seen.size} looks={seen.looks} />
-  /* Still reading: no screen at all rather than a spinner. It is one open and
-     one read and it is done in single-digit milliseconds for the files this
-     module is for; anything drawn here is a flash the person reads as a fault.
-     The previous file stays on screen until the next one is ready, which is the
-     behaviour every editor has and the reason `useSource` keeps `seen` until it
-     has something to replace it with. */
-  if (!text) return <div className="p-3" data-testid="reading" />
-  if (!text.text.length) return <EmptyFile />
+  /*
+   * Every not-ready moment is the protocol's one cover, and the order is what makes it true: a
+   * page that has not been greeted is `waiting`, never "no project"; then nothing framing it, then
+   * no project. Its own server not answering is said only while there is a file being asked for.
+   *
+   * There is no press on any of them, deliberately: a box to type a path into would make this a
+   * viewer that can disagree with the canvas about which file is open.
+   */
+  const cover: CoverState | null =
+    server === 'stale'
+      ? 'stale'
+      : (coverFor({ where, projectPath }) ?? (server === 'down' && passage ? 'down' : null))
+  if (cover && cover !== 'down') return <Cover state={cover} name="Source" />
 
-  const shown = label(text.path, projectPath, room.name)
+  const shown = text && projectPath ? label(text.path, projectPath, room.name) : ''
 
-  return (
+  const screen = !passage ? (
+    <NoPassage />
+  ) : trouble ? (
+    <Trouble said={trouble} />
+  ) : seen?.kind === 'folder' ? (
+    <Folder />
+  ) : seen?.kind === 'binary' ? (
+    <Binary size={seen.size} looks={seen.looks} />
+  ) : !text ? (
+    /* Still reading: no screen at all rather than a spinner. It is one open and
+       one read and it is done in single-digit milliseconds for the files this
+       module is for; anything drawn here is a flash the person reads as a fault.
+       The previous file stays on screen until the next one is ready, which is the
+       behaviour every editor has and the reason `useSource` keeps `seen` until it
+       has something to replace it with. */
+    <div className="p-3" data-testid="reading" />
+  ) : !text.text.length ? (
+    <EmptyFile />
+  ) : (
     <div className="flex h-full min-w-0 flex-col">
       {/*
        * The header: what file this is, and nothing else.
@@ -197,5 +223,17 @@ export function App() {
         </p>
       ) : null}
     </div>
+  )
+
+  return (
+    <>
+      {/* Nothing answered the last read. Try again asks for the same file again. */}
+      {cover === 'down' ? <Cover state="down" name="Source" onRetry={retry} /> : null}
+      {/* Kept mounted under the cover, so the file that was on screen and where it was scrolled
+          to are still there when the server answers again. */}
+      <div hidden={cover === 'down'} className="h-full min-w-0">
+        {screen}
+      </div>
+    </>
   )
 }

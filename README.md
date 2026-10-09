@@ -52,7 +52,7 @@ failure rather than something that quietly starts working.
 
 **It never points the canvas.** This is the purest *consumer* in the workspace:
 it reads the context and calls nothing. `declares.uses` is empty and there is no
-`request` anywhere in `src/wire/`. The reason is in `manifest.ts` at length; the
+`request` anywhere in `src/`. The reason is in `manifest.ts` at length; the
 short version is that a module which both follows a value and sets it is a loop
 with a person in it, and somebody has to be the one that only listens.
 
@@ -61,7 +61,7 @@ with a person in it, and somebody has to be the one that only listens.
 ```
 manifest.ts          what this app says about itself, and every bound it accepts
 doors.ts             /healthz, /mcp and /api/source — deciding, without a socket
-vite.config.ts       the one server: the page and the doors on one origin
+vite.config.ts       the one server: the protocol's serves() and doors(), one origin
 file/confine.ts      the fence. The only file that decides what may be opened
 file/read.ts         opening one file: the window, the sniff, the offsets
 file/shape.ts        the bounds, the language table, and the words for sizes
@@ -118,7 +118,7 @@ bun run typecheck
 
 | variable | what it does |
 | --- | --- |
-| `PORT` | where to listen. Default 7980, which is also what `register.ts` writes |
+| `PORT` | where to listen. Default 7980 (`PREFERRED_PORT`), which is also what `register.ts` writes; if it is taken, the next free port, and the registration is rewritten to match |
 | `SOURCE_ROOTS` | colon-separated absolute directories this app may be pointed at. Unset means "whatever the host names", which is the default and the honest one |
 | `KEHIKOT_ORIGINS` | who may frame this page. Default is the host in this workspace |
 
