@@ -4,6 +4,8 @@ import { MAX_BYTES, bytes } from './file/shape.ts'
 
 export const ID = 'kehikot.source'
 export const VERSION = '1.0.0'
+/** The port `serves()` takes when nothing else has it and no host said one in $PORT. `register.ts` reads it too. */
+export const PREFERRED_PORT = 7980
 
 /**
  * What this app says about itself when a host asks.

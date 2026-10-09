@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react'
-
-import type { Passage } from '@/wire/use-kehikot.ts'
+import type { Passage } from 'kehikot-module-protocol'
+import { ask } from 'kehikot-module-protocol/client'
+import { useCallback, useEffect, useState } from 'react'
 
 /**
- * One file, fetched from this app's own door, and nothing else kept.
+ * One file, asked of this app's own door (the protocol's `ask`), and nothing else kept.
  *
  * ## What this hook is careful about, which is not the fetch
  *
@@ -12,9 +12,10 @@ import type { Passage } from '@/wire/use-kehikot.ts'
  * `{path, page, from, to, quoted}` object, identical in content and new in
  * identity. An effect keyed on the passage object re-reads somebody's file over
  * HTTP twice a second, forever, in a container nobody is touching. So the effect
- * is keyed on the four PRIMITIVES that change what gets read, and the wire hook
- * compares before it stores — two defences, because this one is the difference
- * between an idle container and a program hammering a disk.
+ * is keyed on the four PRIMITIVES that change what gets read — and never on the
+ * passage itself, which the protocol's `useHost` hands on as the host sent it —
+ * because this is the difference between an idle container and a program
+ * hammering a disk.
  *
  * `page` and `quoted` are deliberately not among the keys. `page` is a filter a
  * paginating reader applies to its own view and says nothing about which bytes
@@ -42,6 +43,8 @@ export interface Source {
   trouble: string | null
   /** True between asking and answering, and used only to keep the previous file on screen. */
   reading: boolean
+  /** Ask again for the same file: what Try again does when this app's own server did not answer. */
+  retry: () => void
 }
 
 export type Seen =
@@ -65,6 +68,8 @@ export function useSource(projectPath: string | null, passage: Passage | null): 
   const [seen, setSeen] = useState<Seen | null>(null)
   const [trouble, setTrouble] = useState<string | null>(null)
   const [reading, setReading] = useState(false)
+  const [again, setAgain] = useState(0)
+  const retry = useCallback(() => setAgain((n) => n + 1), [])
 
   const path = passage?.path ?? null
   const from = passage?.from ?? null
@@ -82,7 +87,6 @@ export function useSource(projectPath: string | null, passage: Passage | null): 
     let cancelled = false
     setReading(true)
 
-    const query = new URLSearchParams({ projectPath, path })
     /*
      * The range is passed through UNTOUCHED when it is a range and left out
      * entirely when it is not.
@@ -93,45 +97,41 @@ export function useSource(projectPath: string | null, passage: Passage | null): 
      * invent an end, and the end it invented would be drawn on somebody's screen
      * as though a module had chosen it.
      */
-    if (from !== null && to !== null) {
-      query.set('from', String(from))
-      query.set('to', String(to))
-    }
+    const range = from !== null && to !== null ? { from, to } : {}
 
-    void fetch(`./api/source?${query.toString()}`, { signal: controller.signal })
-      .then(async (response) => {
-        const body = (await response.json()) as { ok?: boolean; error?: string } & Partial<Seen>
-        if (cancelled) return
-        if (!response.ok || !body.ok) {
-          setSeen(null)
-          /* The server's sentence, verbatim. It gives ONE refusal for "outside
-             the project", "does not exist" and "cannot be read", deliberately —
-             see `file/confine.ts` — and rewording it here would be this page
-             inventing a distinction the server refused to draw. */
-          setTrouble(body.error ?? 'That file could not be read.')
-          return
-        }
+    /* The protocol's `ask`: it never throws, every failure is one typed result, and it keeps the
+       page's standing with its own server — which is what draws the "not answering" cover and
+       reloads a page that is older than its server. */
+    void ask<Seen>('./api/source', { query: { projectPath, path, ...range }, signal: controller.signal }).then((asked) => {
+      if (cancelled || controller.signal.aborted) return
+      setReading(false)
+      if (asked.ok) {
         setTrouble(null)
-        setSeen(body as Seen)
-      })
-      .catch(() => {
-        if (cancelled || controller.signal.aborted) return
-        setSeen(null)
-        /* A transport failure, which for a page fetching its own origin means
-           the server it was served by has stopped. Said in the reader's terms
-           rather than as a status code, because there is nothing they can do
-           with the code. */
-        setTrouble('This module’s own server did not answer.')
-      })
-      .finally(() => {
-        if (!cancelled) setReading(false)
-      })
+        setSeen(asked.body)
+        return
+      }
+      /*
+       * Nothing answered at all: this app's own server has stopped.
+       *
+       * Not a fact about the file, so nothing is said about the file and what
+       * was on screen is kept. The page draws the shared cover from the
+       * standing, and its Try again is `retry`.
+       */
+      if (asked.kind === 'down') return
+      setSeen(null)
+      /* The server's sentence, verbatim. It gives ONE refusal for "outside
+         the project", "does not exist" and "cannot be read", deliberately —
+         see `file/confine.ts` — and rewording it here would be this page
+         inventing a distinction the server refused to draw. */
+      const said = (asked.body as { error?: unknown } | null)?.error
+      setTrouble(typeof said === 'string' && said ? said : 'That file could not be read.')
+    })
 
     return () => {
       cancelled = true
       controller.abort()
     }
-  }, [projectPath, path, from, to])
+  }, [projectPath, path, from, to, again])
 
-  return { seen, trouble, reading }
+  return { seen, trouble, reading, retry }
 }
