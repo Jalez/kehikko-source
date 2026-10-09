@@ -204,6 +204,8 @@ export const MANIFEST: Manifest = manifestSchema.parse({
   extensions: { emits: [], consumes: [] },
   /** The one field this app follows, and the whole of what it does. See above. */
   reacts: ['passage'],
+  /* Why this module has nothing to narrow by the parts of an epic. */
+  partless: 'Shows the one file a passage points at; there is no list to narrow.',
   declares: {
     protocol: `>=${PROTOCOL} <${PROTOCOL + 1}`,
     /* Empty, and the essay above is mostly about why. This module calls nothing
