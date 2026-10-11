@@ -204,10 +204,22 @@ export const MANIFEST: Manifest = manifestSchema.parse({
     about: 'What the Source container on the canvas is showing of a file, with its bounds and its line numbers.',
   },
   extensions: { emits: [], consumes: [] },
-  /** The one field this app follows, and the whole of what it does. See above. */
-  reacts: ['passage'],
-  /* Why this module has nothing to narrow by the parts of an epic. */
-  partless: 'Shows the one file a passage points at; there is no list to narrow.',
+  /**
+   * `passage` is the field this app follows, and what chooses the file. See above.
+   *
+   * `parts` is beside it, where `partless` used to be ("there is no list to
+   * narrow"). There is still no list and the parts still choose nothing here.
+   * But a person who has ticked two parts sees two files everywhere else and
+   * one of them in this container, and a passage can point into a file no
+   * ticked part owns: one file drawn with nothing said looked like the whole
+   * answer in both. So the file's name is set back when it is outside the
+   * pick, and its tooltip says how the file stands to it — no row, since the
+   * host's bar already names what is picked (`src/view/focus.ts`, by the
+   * protocol's `fileInFocus`). That is
+   * reacting to parts, and saying it has nothing to do with them would be the
+   * declaration being wrong rather than the screen.
+   */
+  reacts: ['passage', 'parts'],
   declares: {
     protocol: `>=${PROTOCOL} <${PROTOCOL + 1}`,
     /* Empty, and the essay above is mostly about why. This module calls nothing

@@ -43,6 +43,21 @@ looking at" is a container that can disagree with every other container on the
 canvas, and a viewer showing the wrong file looks exactly like one showing the
 right file.
 
+### When parts of the epic are picked
+
+Parts are picked in the host's bar, and they choose nothing here: the passage
+still names the one file. Nothing is added to the page either — no row, no
+banner. Two things are said where they cost no room:
+
+- a file **no picked part owns** has its name in the header set back (muted);
+- the name's tooltip says how the file stands to the pick — `This file is
+  outside the picked part (Methods).`, or `One of 2 files in the picked parts
+  (Methods, Results). The other is chapters/4_results.tex.` — with every other
+  file named. They are not offered as presses: that would be the file picker
+  this module refuses.
+
+The rule is the protocol's `fileInFocus`; the words are in `src/view/focus.ts`.
+
 ## What it will not do
 
 **It never writes.** No edit, no save, no create, rename, move or delete. Files
@@ -67,6 +82,7 @@ file/read.ts         opening one file: the window, the sniff, the offsets
 file/shape.ts        the bounds, the language table, and the words for sizes
 src/lib/highlight.ts colours and the highlighted range, as one list of spans
 src/view/room.ts     what fits, from two numbers, with no DOM
+src/view/focus.ts    how the file shown stands to the picked parts, for the name's tooltip
 src/view/code.tsx    the lines
 src/use-source.ts    fetching, and not fetching twice a second
 dev/                 three probes that drive the real page in a real browser

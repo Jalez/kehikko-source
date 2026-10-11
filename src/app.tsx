@@ -8,6 +8,7 @@ import { ID } from '../manifest.ts'
 import { Button } from '@/components/ui/button.tsx'
 import { useSource } from '@/use-source.ts'
 import { Code } from '@/view/code.tsx'
+import { focusLine } from '@/view/focus.ts'
 import { label, room as measure } from '@/view/room.ts'
 import { Binary, EmptyFile, Folder, NoPassage, Trouble } from '@/view/screens.tsx'
 
@@ -71,7 +72,7 @@ export function App() {
   /* The protocol's host hook: where the page stands, the theme on `<html>`, the flattened context.
      The passage is applied on every context including when it is null, and never remembered: a
      container that held onto the last one would go on showing a file the reader closed. */
-  const { where, projectPath, passage, resize } = useHost(ID, { onGoto })
+  const { where, projectPath, passage, parts, epic, resize } = useHost(ID, { onGoto })
   /* How this page's own server last answered: `down` when nothing did, `stale` when it restarted under this page. */
   const server = useServerStanding()
   const { seen, trouble, retry } = useSource(projectPath, passage)
@@ -136,6 +137,10 @@ export function App() {
   if (cover && cover !== 'down') return <Cover state={cover} name="Source" />
 
   const shown = text && projectPath ? label(text.path, projectPath, room.name) : ''
+  /* How the file on screen stands to the parts picked in the host's bar, when that is worth saying.
+     About the file that is DRAWN (`text.path`), not the passage: while the next file is being read
+     the previous one is still on screen, and the line must be about that one. */
+  const focus = text ? focusLine(parts, text.path, epic) : null
 
   const screen = !passage ? (
     <NoPassage />
@@ -169,7 +174,19 @@ export function App() {
        */}
       {room.header ? (
         <div className="flex min-w-0 shrink-0 items-baseline gap-2 border-b px-2 py-1">
-          <span data-testid="name" title={text.path} className="min-w-0 flex-1 truncate text-[0.7rem] font-medium">
+          {/*
+           * How this one file stands to the picked parts is said HERE and takes no room: the name is
+           * set back when no picked part owns the file, and the sentence — with the other files of the
+           * picked parts named — is in the name's tooltip. No row and no press: the host's bar already
+           * says what is picked, and a line under the name was a line of somebody's file not shown.
+           * `view/focus.ts` has the rule.
+           */}
+          <span
+            data-testid="name"
+            data-focus={focus?.kind}
+            title={focus ? `${text.path}\n${focus.title}` : text.path}
+            className={`min-w-0 flex-1 truncate text-[0.7rem] font-medium ${focus?.kind === 'outside' ? 'text-muted-foreground' : ''}`}
+          >
             {shown}
           </span>
           {/*

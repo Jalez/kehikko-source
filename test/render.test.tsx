@@ -291,6 +291,81 @@ describe('the not-ready moments, each as the one shared cover', () => {
     expect(scroller.closest('[hidden]')).not.toBeNull()
   })
 
+  describe('with parts picked in the host’s bar', () => {
+    const DIR = '/tmp/p/.kehikot/paper/thesis'
+    const pointed = { ...passage, path: `${DIR}/chapters/3_methods.tex` }
+    const part = (id: string, heading: string, picked: boolean, files: string[]) => ({ id, heading, refs: [], picked, files })
+    const parts = (...picked: string[]) => [
+      part('methods', 'Methods', picked.includes('methods'), ['chapters/3_methods.tex']),
+      part('results', 'Results', picked.includes('results'), ['chapters/4_results.tex']),
+    ]
+    const said = (picked: string[], at = pointed) =>
+      post({ type: 'kehikot.context', ...context({ epic: 'thesis', project: 'p', projectPath: '/tmp/p', passage: at, parts: parts(...picked) }) })
+
+    /* A pane with room for its header, which is where this is said: happy-dom lays nothing out and measures 0. */
+    const sized = { width: Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientWidth'), height: Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientHeight') }
+    beforeEach(() => {
+      Object.defineProperty(HTMLElement.prototype, 'clientWidth', { configurable: true, get: () => 460 })
+      Object.defineProperty(HTMLElement.prototype, 'clientHeight', { configurable: true, get: () => 360 })
+    })
+    afterEach(() => {
+      for (const [key, was] of [['clientWidth', sized.width], ['clientHeight', sized.height]] as const) {
+        if (was) Object.defineProperty(HTMLElement.prototype, key, was)
+        else delete (HTMLElement.prototype as unknown as Record<string, unknown>)[key]
+      }
+    })
+
+    beforeEach(() => {
+      const served = globalThis.fetch
+      globalThis.fetch = (async (url: unknown) => {
+        const answer = await served(url as string)
+        const body = (await answer.json()) as Record<string, unknown>
+        return new Response(JSON.stringify({ ...body, path: new URL(String(url), 'http://x').searchParams.get('path') }), { status: 200 })
+      }) as unknown as typeof fetch
+    })
+
+    const name = () => screen.getByTestId('name')
+
+    test('two parts ticked: the name’s tooltip says the file is one of two and names the other — and no row is added', async () => {
+      render(<App />)
+      await greet({ epic: 'thesis', project: 'p', projectPath: '/tmp/p', passage: pointed, parts: parts() })
+      /* Nothing picked: the page as it always was. */
+      expect(name().getAttribute('title')).toBe(pointed.path)
+      expect(name().hasAttribute('data-focus')).toBe(false)
+      const rows = () => screen.getByTestId('scroller').parentElement!.children.length
+      const before = rows()
+
+      await said(['methods'])
+      expect(name().getAttribute('title')).toBe(pointed.path)
+
+      await said(['methods', 'results'])
+      expect(name().getAttribute('data-focus')).toBe('one-of')
+      expect(name().getAttribute('title')).toContain('One of 2 files in the picked parts (Methods, Results). The other is chapters/4_results.tex.')
+      /* In the pick, so drawn as ever; and nothing was put between the name and the file. */
+      expect(name().className).not.toContain('text-muted-foreground')
+      expect(rows()).toBe(before)
+      expect(screen.queryByTestId('focus')).toBeNull()
+      /* The ticks chose nothing and read nothing: the same one file, asked for once. */
+      expect(asked.filter((url) => url.includes('3_methods.tex'))).toHaveLength(1)
+
+      await said([])
+      expect(name().hasAttribute('data-focus')).toBe(false)
+    })
+
+    test('a file outside the ticked part is shown all the same, with its name set back', async () => {
+      render(<App />)
+      await greet({ epic: 'thesis', project: 'p', projectPath: '/tmp/p', passage: pointed, parts: parts('results') })
+      expect(name().getAttribute('data-focus')).toBe('outside')
+      expect(name().className).toContain('text-muted-foreground')
+      expect(name().getAttribute('title')).toContain('This file is outside the picked part (Results).')
+      expect(screen.getByTestId('scroller').textContent).toContain('const a = 1')
+      /* The passage moves into the part: the name stands as usual. */
+      await said(['results'], { ...passage, path: `${DIR}/chapters/4_results.tex` })
+      expect(name().hasAttribute('data-focus')).toBe(false)
+      expect(name().className).not.toContain('text-muted-foreground')
+    })
+  })
+
   test('a file the server refuses is the server’s own sentence, not a cover', async () => {
     refuse = 'There is nothing there to show inside this project.'
     render(<App />)
