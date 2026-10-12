@@ -1,7 +1,7 @@
-import { rootOf } from './file/confine.ts'
+import { configuredRoots, rootOf } from './file/confine.ts'
 import { open, type Wanted } from './file/read.ts'
 import { MAX_BYTES, MAX_LINES, MAX_PATH, bytes, offset, str } from './file/shape.ts'
-import { establishBuild } from 'kehikot-module-protocol/serve'
+import { establishBuild, mintTicket, refuseTicket } from 'kehikot-module-protocol/serve'
 
 import { ID, MANIFEST, VERSION } from './manifest.ts'
 
@@ -11,6 +11,15 @@ import { ID, MANIFEST, VERSION } from './manifest.ts'
  * across a restart finds out it is older than its server, and reloads.
  */
 export const BUILD = establishBuild({ version: VERSION, dir: import.meta.dirname })
+
+/**
+ * Minted per process and printed into `/app` by `doors()`, so only this app's own page holds it.
+ * The page's door asks for it: it is how this server tells its own page, which names the project a
+ * host put it in, from every other caller. `/mcp` asks for none, because an agent has no page to
+ * have been handed one by; it is shown a project only once the page has been opened on it
+ * (`rootOf` in `file/confine.ts`).
+ */
+export const TICKET = mintTicket()
 
 /**
  * Every door this app answers on that is not the page itself.
@@ -80,18 +89,15 @@ const bad = (why: string, status = 400): Reply => ({ status, body: { ok: false, 
  */
 const NO_ROOT_PAGE = 'Nothing has said which project is open, so there is nothing to show.'
 const NO_ROOT_AGENT =
-  'That did not say which project, or named one this app may not read. Send projectPath as an absolute directory. '
-  + 'This app will not guess: the only folder it could pick is its own, and its own source is not an answer to a '
-  + 'question about your file.'
+  'That did not say which project, or named one this app does not read. Send projectPath as the absolute directory '
+  + 'of a project that is open in the host with the Source container on its canvas: this app shows a file of a '
+  + 'project once its own page has been opened on it (or one inside the directories its operator listed), and never '
+  + 'takes a home folder or a whole disk as a project. This app will not guess: the only folder it could pick is its '
+  + 'own, and its own source is not an answer to a question about your file.'
+const NOT_A_PROJECT_PAGE =
+  'That folder is not shown as a project. This app shows files of a project folder — never of a home folder or a '
+  + 'whole disk as such — and, when its operator has listed directories, only what is inside them.'
 
-/**
- * A half-range is refused rather than repaired.
- *
- * The protocol refuses one on the wire for the reason worth repeating at every
- * door: "a consumer reading `from` with no `to` has to invent an end, and the
- * end it invents is a claim about somebody's document". This app would have to
- * invent one to highlight anything, so it declines to.
- */
 const HALF_RANGE =
   'A range needs both from and to, with to greater. One end alone is not a coarser answer; it is a malformed one.'
 
@@ -302,6 +308,7 @@ export function answer(
   path: string,
   query: URLSearchParams,
   body: Record<string, unknown> | null,
+  ticket: string | null = null,
 ): Reply | null {
   /*
    * The health check, which reports what this app IS rather than what it holds.
@@ -314,12 +321,12 @@ export function answer(
    * roots are set to would make it a reconnaissance endpoint.
    */
   if (path === '/healthz') {
-    const configured = (process.env.SOURCE_ROOTS ?? '').split(':').filter((one) => one.trim()).length
+    const configured = configuredRoots().length
     return ok({
       ok: true,
       id: ID,
       version: VERSION,
-      roots: configured === 0 ? 'whatever the host names' : `${configured} configured`,
+      roots: configured === 0 ? 'the projects this app’s own page has been opened on' : `${configured} configured`,
       ceiling: bytes(MAX_BYTES),
       writes: 'none — this module opens files read-only and nothing else',
     })
@@ -348,8 +355,13 @@ export function answer(
    * something would be inventing a document.
    */
   if (path === '/api/source' && method === 'GET') {
-    const root = rootOf(str(query.get('projectPath'), MAX_PATH))
-    if (!root) return bad(NO_ROOT_PAGE)
+    /* Marked as a ticket refusal, so a page older than this server knows to reload itself. */
+    const stranger = refuseTicket(ticket, TICKET, 'That was not asked by this app’s own page.')
+    if (stranger) return stranger
+    const named = str(query.get('projectPath'), MAX_PATH)
+    if (!named) return bad(NO_ROOT_PAGE)
+    const root = rootOf(named, 'page')
+    if (!root) return bad(NOT_A_PROJECT_PAGE)
     const at = str(query.get('path'), MAX_PATH)
     if (!at) return bad('Nothing named a file to show.')
 
