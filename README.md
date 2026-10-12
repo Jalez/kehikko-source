@@ -45,18 +45,13 @@ right file.
 
 ### When parts of the epic are picked
 
-Parts are picked in the host's bar, and they choose nothing here: the passage
-still names the one file. Nothing is added to the page either — no row, no
-banner. Two things are said where they cost no room:
-
-- a file **no picked part owns** has its name in the header set back (muted);
-- the name's tooltip says how the file stands to the pick — `This file is
-  outside the picked part (Methods).`, or `One of 2 files in the picked parts
-  (Methods, Results). The other is chapters/4_results.tex.` — with every other
-  file named. They are not offered as presses: that would be the file picker
-  this module refuses.
-
-The rule is the protocol's `fileInFocus`; the words are in `src/view/focus.ts`.
+Parts are picked in the host's bar, and they change nothing here. This page has
+one item — the file the canvas is pointed at — and it is in hand: somebody
+pointed at it. The one rule every module narrows by keeps what is in hand, so
+the file is drawn as it always is, whether or not a picked part lists it, and
+nothing on the page is about the pick: no row, no muted name, no tooltip. The
+rule is the protocol's (`useFocus().narrow`); `src/view/focus.ts` says what the
+file is tied to and why it is kept.
 
 ## What it will not do
 
@@ -82,7 +77,7 @@ file/read.ts         opening one file: the window, the sniff, the offsets
 file/shape.ts        the bounds, the language table, and the words for sizes
 src/lib/highlight.ts colours and the highlighted range, as one list of spans
 src/view/room.ts     what fits, from two numbers, with no DOM
-src/view/focus.ts    how the file shown stands to the picked parts, for the name's tooltip
+src/view/focus.ts    what the file shown is tied to under a pick of the epic's parts, and why it is kept
 src/view/code.tsx    the lines
 src/use-source.ts    fetching, and not fetching twice a second
 dev/                 three probes that drive the real page in a real browser

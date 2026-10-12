@@ -49,7 +49,7 @@ export function NoPassage() {
   return (
     <div className="p-3">
       <p data-testid="no-passage" className="text-xs text-muted-foreground">
-        Nothing is pointing at a file yet. Press one in Explorer.
+        Nothing is pointing at a file yet. Press one anywhere on the canvas.
       </p>
     </div>
   )
@@ -120,6 +120,20 @@ export function Trouble({ said }: { said: string }) {
   return (
     <div className="p-3">
       <p data-testid="trouble" className="text-xs text-red-600 dark:text-red-400">
+        {said}
+      </p>
+    </div>
+  )
+}
+
+/**
+ * A view the picked parts left with nothing: the protocol's one sentence, where
+ * the file would be. Drawn only then.
+ */
+export function NoneInFocus({ said }: { said: string }) {
+  return (
+    <div className="p-3">
+      <p data-testid="none-in-focus" className="text-xs text-muted-foreground">
         {said}
       </p>
     </div>
