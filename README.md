@@ -135,11 +135,13 @@ bun run typecheck
 | variable | what it does |
 | --- | --- |
 | `PORT` | where to listen. Default 7980 (`PREFERRED_PORT`), which is also what `register.ts` writes; if it is taken, the next free port, and the registration is rewritten to match |
-| `SOURCE_ROOTS` | colon-separated absolute directories this app may be pointed at. Unset means "whatever the host names", which is the default and the honest one |
+| `SOURCE_ROOTS` | colon-separated absolute directories this app may be pointed at; set, that list is the whole rule. Unset, the default, means a project this app's own page has been opened on by the host (the page says which with its ticket), and never a home folder or the disk's root |
 | `KEHIKOT_ORIGINS` | who may frame this page. Default is the host in this workspace |
 
 `SOURCE_ROOTS` never affects the other fence, which is unconditional: whatever
-the root is, no path in any request can leave it.
+the root is, no path in any request can leave it. Nor the rule in
+`file/withheld.ts`: a file that by its name holds what a program signs in with
+(`.env`, a private key, anything inside `.git`) is not shown.
 
 ## The numbers, and where they came from
 

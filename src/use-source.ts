@@ -101,8 +101,9 @@ export function useSource(projectPath: string | null, passage: Passage | null): 
 
     /* The protocol's `ask`: it never throws, every failure is one typed result, and it keeps the
        page's standing with its own server — which is what draws the "not answering" cover and
-       reloads a page that is older than its server. */
-    void ask<Seen>('./api/source', { query: { projectPath, path, ...range }, signal: controller.signal }).then((asked) => {
+       reloads a page that is older than its server. The read carries the ticket printed into this
+       page: it is how the server knows the project named here is the one a host put this page in. */
+    void ask<Seen>('./api/source', { query: { projectPath, path, ...range }, signal: controller.signal, ticket: true }).then((asked) => {
       if (cancelled || controller.signal.aborted) return
       setReading(false)
       if (asked.ok) {

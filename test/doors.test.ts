@@ -1,12 +1,13 @@
-import { afterAll, describe, expect, test } from 'bun:test'
+import { afterAll, beforeEach, describe, expect, test } from 'bun:test'
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { PACKAGE_VERSION } from 'kehikot-module-protocol'
 import { doorsHandler } from 'kehikot-module-protocol/serve'
 
-import { BUILD, answer } from '../doors.ts'
+import { BUILD, TICKET, answer } from '../doors.ts'
+import { forgetKnown } from '../file/confine.ts'
 import { MANIFEST } from '../manifest.ts'
 
 /**
@@ -27,8 +28,9 @@ const root = realpathSync(scratch)
 
 afterAll(() => rmSync(scratch, { recursive: true, force: true }))
 
-const get = (path: string, query: Record<string, string> = {}) =>
-  answer('GET', path, new URLSearchParams(query), null)
+/* As this app's own page asks: with the ticket this process printed into it. */
+const get = (path: string, query: Record<string, string> = {}, ticket: string | null = TICKET) =>
+  answer('GET', path, new URLSearchParams(query), null, ticket)
 
 const rpc = (method: string, params?: Record<string, unknown>) =>
   answer('POST', '/mcp', new URLSearchParams(), { jsonrpc: '2.0', id: 1, method, ...(params ? { params } : {}) })
@@ -90,6 +92,33 @@ describe('/healthz', () => {
 })
 
 describe('/api/source', () => {
+  test('answers only this app’s own page: a read without its ticket is refused, and marked so', () => {
+    for (const carried of [null, '', 'not-the-ticket']) {
+      const reply = get('/api/source', { projectPath: root, path: 'a.ts' }, carried)
+      expect(reply?.status).toBe(403)
+      expect((reply?.body as { refused?: string }).refused).toBe('ticket')
+    }
+  })
+
+  test('the disk’s root and a home folder are not taken as a project', () => {
+    for (const projectPath of ['/', homedir(), join(homedir(), '..')]) {
+      const reply = get('/api/source', { projectPath, path: 'a.ts' })
+      expect([projectPath, reply?.status]).toEqual([projectPath, 400])
+      expect((reply?.body as { error: string }).error).toContain('not shown as a project')
+    }
+  })
+
+  test('a file that by its name holds what a program signs in with is not shown', () => {
+    writeFileSync(join(scratch, '.env'), 'TOKEN=THE-CONTENTS\n')
+    writeFileSync(join(scratch, '.gitignore'), 'node_modules\n')
+    const reply = get('/api/source', { projectPath: root, path: '.env' })
+    expect(reply?.status).toBe(404)
+    expect(JSON.stringify(reply?.body)).not.toContain('THE-CONTENTS')
+    expect((reply?.body as { error: string }).error).toContain('does not show that file')
+    /* Another dot-file is a file like any other. */
+    expect(get('/api/source', { projectPath: root, path: '.gitignore' })?.status).toBe(200)
+  })
+
   test('a file comes back with its text and its language', () => {
     const reply = get('/api/source', { projectPath: root, path: 'a.ts' })
     expect(reply?.status).toBe(200)
@@ -154,6 +183,54 @@ describe('/mcp', () => {
        that used this one instead would be taking a slower, bounded path to an
        answer it already had. */
     expect(body.result.tools[0]!.description).toContain('use your own reader')
+  })
+
+  /* An agent is shown a file of a project this app's own page has been opened on, so the page opens it first. */
+  beforeEach(() => {
+    forgetKnown()
+    get('/api/source', { projectPath: root, path: 'a.ts' })
+  })
+
+  const shown = (args: Record<string, unknown>) => {
+    const reply = rpc('tools/call', { name: 'shown', arguments: args })
+    return { text: said(reply), isError: (reply?.body as { result?: { isError?: boolean } })?.result?.isError === true }
+  }
+
+  test('a project the page has not been opened on is not read, and the refusal says what to do', () => {
+    forgetKnown()
+    const refused = shown({ projectPath: root, path: 'a.ts' })
+    expect(refused.isError).toBe(true)
+    expect(refused.text).toContain('open in the host with the Source container on its canvas')
+    expect(refused.text).not.toContain('const a = 1')
+    /* A read that did not carry the page's ticket does not make it known. */
+    get('/api/source', { projectPath: root, path: 'a.ts' }, 'not-the-ticket')
+    expect(shown({ projectPath: root, path: 'a.ts' }).isError).toBe(true)
+    get('/api/source', { projectPath: root, path: 'a.ts' })
+    expect(shown({ projectPath: root, path: 'a.ts' }).text).toContain('const a = 1')
+  })
+
+  test('the disk’s root, a home folder and a folder nobody opened are refused alike', () => {
+    const elsewhere = realpathSync(mkdtempSync(join(tmpdir(), 'source-elsewhere-')))
+    writeFileSync(join(elsewhere, 'far.txt'), 'FAR-WORDS\n')
+    try {
+      for (const [projectPath, path] of [['/', 'etc/hosts'], ['/etc', 'hosts'], [homedir(), '.zshrc'], [elsewhere, 'far.txt']] as const) {
+        const { text, isError } = shown({ projectPath, path })
+        expect([projectPath, isError]).toEqual([projectPath, true])
+        expect(text).toContain('projectPath')
+        expect(text).not.toContain('FAR-WORDS')
+      }
+      /* And a file elsewhere named absolutely, from a project that is known, is no nearer. */
+      expect(shown({ projectPath: root, path: join(elsewhere, 'far.txt') }).text).not.toContain('FAR-WORDS')
+    } finally {
+      rmSync(elsewhere, { recursive: true, force: true })
+    }
+  })
+
+  test('an agent is not shown a file the page would not be', () => {
+    writeFileSync(join(scratch, '.env'), 'TOKEN=THE-CONTENTS\n')
+    const { text } = shown({ projectPath: root, path: '.env' })
+    expect(text).toContain('does not show that file')
+    expect(text).not.toContain('THE-CONTENTS')
   })
 
   test('shown returns the file with real line numbers', () => {

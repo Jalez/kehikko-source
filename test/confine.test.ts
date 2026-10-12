@@ -1,9 +1,9 @@
-import { afterAll, describe, expect, test } from 'bun:test'
+import { afterAll, beforeEach, describe, expect, test } from 'bun:test'
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { contains, inside, rootOf } from '../file/confine.ts'
+import { contains, forgetKnown, inside, rootOf, tooWide } from '../file/confine.ts'
 
 /**
  * Trying to get past the fence.
@@ -173,23 +173,62 @@ describe('contains', () => {
 })
 
 describe('rootOf', () => {
-  test('an absolute directory that exists is a root', () => {
+  beforeEach(() => forgetKnown())
+
+  test('a directory the page names is a root, by its real path', () => {
+    expect(rootOf(project, 'page')).toBe(root)
+  })
+
+  test('an agent is served a project only once the page has named it', () => {
+    expect(rootOf(project)).toBeNull()
+    expect(rootOf(project, 'agent')).toBeNull()
+    expect(rootOf(project, 'page')).toBe(root)
     expect(rootOf(project)).toBe(root)
+    expect(rootOf(root)).toBe(root)
+    /* Its neighbours are not known for that, and nor is a folder inside it or above it. */
+    expect(rootOf(outside)).toBeNull()
+    expect(rootOf(`${project}-evil`)).toBeNull()
+    expect(rootOf(join(project, 'src'))).toBeNull()
+    expect(rootOf(scratch)).toBeNull()
+  })
+
+  test('the disk’s root, the home folder, what is above it and what is beside it are never a root', () => {
+    const home = join(realpathSync(scratch), 'users', 'somebody')
+    mkdirSync(join(home, 'Projects', 'thing'), { recursive: true })
+    mkdirSync(join(home, '..', 'another'), { recursive: true })
+    expect(tooWide('/', home)).toBe(true)
+    expect(tooWide(home, home)).toBe(true)
+    expect(tooWide(join(home, '..'), home)).toBe(true)
+    expect(tooWide(realpathSync(scratch), home)).toBe(true)
+    expect(tooWide(join(home, '..', 'another'), home)).toBe(true)
+    expect(tooWide(join(home, 'Projects', 'thing'), home)).toBe(false)
+    expect(tooWide(join(home, 'Projects'), home)).toBe(false)
+    /* And as the doors meet it: the real home, whoever names it. */
+    for (const by of ['page', 'agent'] as const) {
+      expect(rootOf('/', by)).toBeNull()
+      expect(rootOf(homedir(), by)).toBeNull()
+      expect(rootOf(join(homedir(), '..'), by)).toBeNull()
+    }
   })
 
   test('a relative root is refused, so this app never explores its own source', () => {
-    expect(rootOf('.')).toBeNull()
-    expect(rootOf('src')).toBeNull()
+    for (const by of ['page', 'agent'] as const) {
+      expect(rootOf('.', by)).toBeNull()
+      expect(rootOf('src', by)).toBeNull()
+    }
   })
 
   test('an empty or missing root is refused', () => {
-    expect(rootOf('')).toBeNull()
-    expect(rootOf(null)).toBeNull()
-    expect(rootOf(undefined)).toBeNull()
+    for (const by of ['page', 'agent'] as const) {
+      expect(rootOf('', by)).toBeNull()
+      expect(rootOf(null, by)).toBeNull()
+      expect(rootOf(undefined, by)).toBeNull()
+    }
   })
 
-  test('a root that does not exist is refused', () => {
-    expect(rootOf(join(scratch, 'nope'))).toBeNull()
+  test('a root that does not exist, or is a file, is refused', () => {
+    expect(rootOf(join(scratch, 'nope'), 'page')).toBeNull()
+    expect(rootOf(join(project, 'ok.txt'), 'page')).toBeNull()
   })
 
   describe('with SOURCE_ROOTS configured', () => {
@@ -202,6 +241,9 @@ describe('rootOf', () => {
         expect(rootOf(outside)).toBeNull()
         /* And the prefix trap again, at the other fence. */
         expect(rootOf(`${project}-evil`)).toBeNull()
+        /* The list is the whole rule: the page is bound by it too. */
+        expect(rootOf(outside, 'page')).toBeNull()
+        expect(rootOf(project, 'page')).toBe(root)
       } finally {
         if (was === undefined) delete process.env.SOURCE_ROOTS
         else process.env.SOURCE_ROOTS = was

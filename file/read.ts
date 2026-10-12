@@ -1,6 +1,9 @@
 import { closeSync, openSync, readSync, statSync } from 'node:fs'
 
+import { relative } from 'node:path'
+
 import { inside } from './confine.ts'
+import { WITHHELD, withheld } from './withheld.ts'
 import {
   BYTE_LEAD,
   LINE_LEAD,
@@ -75,8 +78,12 @@ export interface Wanted {
 }
 
 export function open(root: string, at: string, wanted: Wanted | null): Reading {
+  /* As it was written, before the disk is touched: the sentence is about a name, not about whether it exists. */
+  if (withheld(at)) return { kind: 'refused', error: WITHHELD }
   const path = inside(root, at)
   if (path === null) return { kind: 'refused', error: REFUSED }
+  /* And as it resolved: `inside` answers with the real path, under the real root. */
+  if (withheld(relative(root, path))) return { kind: 'refused', error: WITHHELD }
 
   let stat
   try {
