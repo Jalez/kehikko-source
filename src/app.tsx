@@ -1,5 +1,5 @@
 import type { HostEvents } from 'kehikot-module-protocol/client'
-import { Cover, coverFor, useHost, useServerStanding, type CoverState } from 'kehikot-module-protocol/client/react'
+import { Cover, coverFor, useHost, useServerStanding, type CoverState, useFocus } from 'kehikot-module-protocol/client/react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { bytes } from '../file/shape.ts'
@@ -8,9 +8,9 @@ import { ID } from '../manifest.ts'
 import { Button } from '@/components/ui/button.tsx'
 import { useSource } from '@/use-source.ts'
 import { Code } from '@/view/code.tsx'
-import { focusLine } from '@/view/focus.ts'
+import { NOUN, anchorOf, inHand } from '@/view/focus.ts'
 import { label, room as measure } from '@/view/room.ts'
-import { Binary, EmptyFile, Folder, NoPassage, Trouble } from '@/view/screens.tsx'
+import { Binary, EmptyFile, Folder, NoPassage, NoneInFocus, Trouble } from '@/view/screens.tsx'
 
 /** What to do when the host says "go to this reference". The contract is the protocol's: `answer` must be called. */
 type GotoHandler = NonNullable<HostEvents['onGoto']>
@@ -105,7 +105,15 @@ export function App() {
     return () => observer.disconnect()
   }, [where, trouble, seen?.kind])
 
-  const text = seen?.kind === 'text' ? seen : null
+  /*
+   * The one file this page shows, through the one rule every module narrows by. It is the file the
+   * canvas points at, which is in hand, so a pick of the epic's parts takes nothing away and
+   * nothing is said about it. See `view/focus.ts`.
+   */
+  const focus = useFocus({ parts, epic, projectPath })
+  const read = seen?.kind === 'text' ? seen : null
+  const narrowed = focus.narrow(read ? [read] : [], anchorOf, { noun: NOUN, keep: () => inHand(passage) })
+  const text = narrowed.shown[0] ?? null
   const lastLine = text ? text.firstLine + (text.text ? text.text.split('\n').length - 1 : 0) : 1
   const room = useMemo(() => measure(size, lastLine), [size, lastLine])
 
@@ -137,10 +145,6 @@ export function App() {
   if (cover && cover !== 'down') return <Cover state={cover} name="Source" />
 
   const shown = text && projectPath ? label(text.path, projectPath, room.name) : ''
-  /* How the file on screen stands to the parts picked in the host's bar, when that is worth saying.
-     About the file that is DRAWN (`text.path`), not the passage: while the next file is being read
-     the previous one is still on screen, and the line must be about that one. */
-  const focus = text ? focusLine(parts, text.path, epic) : null
 
   const screen = !passage ? (
     <NoPassage />
@@ -150,6 +154,10 @@ export function App() {
     <Folder />
   ) : seen?.kind === 'binary' ? (
     <Binary size={seen.size} looks={seen.looks} />
+  ) : narrowed.empty ? (
+    /* The rule's one sentence, for a view a pick left with nothing. The pointed file is in hand,
+       so this is not reached while the canvas points; it is here so the page says what the rule says. */
+    <NoneInFocus said={narrowed.empty} />
   ) : !text ? (
     /* Still reading: no screen at all rather than a spinner. It is one open and
        one read and it is done in single-digit milliseconds for the files this
@@ -174,19 +182,9 @@ export function App() {
        */}
       {room.header ? (
         <div className="flex min-w-0 shrink-0 items-baseline gap-2 border-b px-2 py-1">
-          {/*
-           * How this one file stands to the picked parts is said HERE and takes no room: the name is
-           * set back when no picked part owns the file, and the sentence — with the other files of the
-           * picked parts named — is in the name's tooltip. No row and no press: the host's bar already
-           * says what is picked, and a line under the name was a line of somebody's file not shown.
-           * `view/focus.ts` has the rule.
-           */}
-          <span
-            data-testid="name"
-            data-focus={focus?.kind}
-            title={focus ? `${text.path}\n${focus.title}` : text.path}
-            className={`min-w-0 flex-1 truncate text-[0.7rem] font-medium ${focus?.kind === 'outside' ? 'text-muted-foreground' : ''}`}
-          >
+          {/* The name, and its whole path one hover away. Nothing here is about the picked parts of the
+              epic: the file is in hand and is drawn the same whatever is picked. */}
+          <span data-testid="name" title={text.path} className="min-w-0 flex-1 truncate text-[0.7rem] font-medium">
             {shown}
           </span>
           {/*

@@ -207,17 +207,10 @@ export const MANIFEST: Manifest = manifestSchema.parse({
   /**
    * `passage` is the field this app follows, and what chooses the file. See above.
    *
-   * `parts` is beside it, where `partless` used to be ("there is no list to
-   * narrow"). There is still no list and the parts still choose nothing here.
-   * But a person who has ticked two parts sees two files everywhere else and
-   * one of them in this container, and a passage can point into a file no
-   * ticked part owns: one file drawn with nothing said looked like the whole
-   * answer in both. So the file's name is set back when it is outside the
-   * pick, and its tooltip says how the file stands to it — no row, since the
-   * host's bar already names what is picked (`src/view/focus.ts`, by the
-   * protocol's `fileInFocus`). That is
-   * reacting to parts, and saying it has nothing to do with them would be the
-   * declaration being wrong rather than the screen.
+   * `parts` is beside it. This page has one item, the file the canvas points
+   * at, and narrows it by the one rule every module narrows by. That file is
+   * in hand, so a pick of the epic's parts takes nothing away, and nothing is
+   * said about the pick while the file is drawn (`src/view/focus.ts`).
    */
   reacts: ['passage', 'parts'],
   declares: {

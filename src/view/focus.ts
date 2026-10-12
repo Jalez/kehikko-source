@@ -1,72 +1,42 @@
-import { FOCUS_WHERE, fileInFocus, paperFileOf, pickedFiles, pickedParts, type EpicPart } from 'kehikot-module-protocol'
+import type { Anchor } from 'kehikot-module-protocol'
 
 /**
- * What this container says about the picked parts of the epic — or nothing,
- * which is the usual answer. It is never a row: the sentence is the tooltip of
- * the file's name, and a file outside the pick has its name set back.
+ * This container under a pick of the epic's parts.
  *
- * ## Why a one-file viewer says anything about parts at all
+ * ## One rule, and it is not this file's
  *
- * This module shows the file the canvas is pointed at and has no list, which
- * is why it used to declare itself `partless`. That was true of what it HOLDS
- * and false about what a person sees. Parts are picked in the host's bar and
- * every container beside this one narrows to them; this one went on showing
- * one file with nothing saying how that file stood to the pick. Two parts
- * ticked, two files in front of the person everywhere else, and one of them
- * here, looking exactly as it does when it is the whole answer. A passage
- * pointed into a file no picked part owns looked the same again.
+ * This module shows one file: the one the canvas is pointed at. That file is
+ * its one item, about itself (`anchorOf`), and the page narrows it through the
+ * protocol's `useFocus(context).narrow` like every list anywhere.
  *
- * So it says which of those it is, where it costs no room, and does nothing else. It still shows the
- * pointed file — the passage is the only thing that chooses it — and there is
- * still no press: a row of the other files to open would be the file picker
- * `app.tsx` refuses, a second answer to "which file are we looking at". The
- * files are named so a person knows what to press next door.
+ * ## The file is in hand, so a pick takes nothing from this page
  *
- * ## The three cases
+ * A passage is somebody pointing: they pressed a file, selected a sentence,
+ * opened a note. What they pointed at is in their hands, and the rule keeps
+ * what is in hand (`inHand`) whatever is picked. So the file is drawn as it
+ * always is, in the picked parts or not.
  *
- *  - **nothing picked**, or the pointed file is the one file the picked parts
- *    own: nothing is said. That is the resting state and it stays quiet.
- *  - **the pointed file is outside the picked parts** (or is no file of the
- *    paper): said, with the parts named. The rule is the protocol's
- *    `fileInFocus`, the same one every neighbour narrows by.
- *  - **the picked parts own several files** and this is one of them: said,
- *    with the others named, a few of them and then a count.
+ * ## And nothing is said about it
+ *
+ * This page used to set the file's name back when no picked part had the file,
+ * and to say in the name's tooltip how the file stood to the pick, with the
+ * other files named. Both are gone. While anything is drawn nothing about the
+ * pick is drawn — the host's bar says what is picked — and this page always
+ * draws something. The one sentence the rule has, for a view a pick left
+ * empty, is the protocol's and is drawn only if the rule ever hands it back.
  */
-export interface FocusLine {
-  /** `outside` when no picked part owns the file shown; `one-of` when they own it and others too. */
-  kind: 'outside' | 'one-of'
-  /** The sentence, short. */
-  said: string
-  /** The same with every file named, and where parts are picked: what the tooltip says. */
-  title: string
-}
 
-/** How many of the other files are named in the line itself before it counts the rest. */
-export const OTHERS_NAMED = 2
+/** What the one item is called in the protocol's sentence for an empty view. */
+export const NOUN = 'file'
 
-export function focusLine(parts: readonly EpicPart[], path: string | null, epic: string | null): FocusLine | null {
-  const picked = pickedParts(parts)
-  if (picked.length === 0 || !path) return null
-  const where = `the picked part${picked.length === 1 ? '' : 's'} (${picked.map((part) => part.heading || part.id).join(', ')})`
-  const owned = pickedFiles(parts)
+/** What ties the file on screen to a part: itself, by its path. THE anchor function of this module. */
+export const anchorOf = (file: { path: string }): Anchor => ({ file: file.path })
 
-  if (!fileInFocus(parts, path, epic)) {
-    const said = `This file is outside ${where}.`
-    const theirs = owned.length ? ` ${owned.length === 1 ? 'Its file is' : 'Their files are'} ${owned.join(', ')}.` : ''
-    return { kind: 'outside', said, title: `${said}${theirs} It is shown because the canvas points at it. ${FOCUS_WHERE}` }
-  }
-
-  const open = paperFileOf(path, epic)
-  const others = owned.filter((file) => file !== open)
-  if (others.length === 0) return null
-  const head = `One of ${owned.length} files in ${where}.`
-  const named = others.slice(0, OTHERS_NAMED).join(', ')
-  const more = others.length - OTHERS_NAMED
-  const rest =
-    others.length === 1 ? `The other is ${named}.` : more > 0 ? `The others: ${named} and ${more} more.` : `The others: ${named}.`
-  return {
-    kind: 'one-of',
-    said: `${head} ${rest}`,
-    title: `${head} The other${others.length === 1 ? ' is' : 's:'} ${others.join(', ')}. This container shows the one the canvas points at. ${FOCUS_WHERE}`,
-  }
-}
+/**
+ * Whether the file on screen is in a person's hands: the canvas is pointing.
+ *
+ * Asked of the passage and not of the path, because while the next file is
+ * being read the previous one is still drawn, and it is still what the person
+ * is looking at. With no passage nothing is drawn at all.
+ */
+export const inHand = (passage: { path: string } | null | undefined): boolean => Boolean(passage)

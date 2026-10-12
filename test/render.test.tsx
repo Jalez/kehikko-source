@@ -24,10 +24,11 @@ const NARROW = room({ width: 220, height: 300 }, 3)
 const PANE = room({ width: 460, height: 360 }, 3)
 
 describe('the screens are different sentences', () => {
-  test('no passage is a different fact from no project, and names who can fix it', () => {
+  test('no passage is a different fact from no project, and says what to do without naming another module', () => {
     render(<NoPassage />)
     const text = screen.getByTestId('no-passage').textContent ?? ''
-    expect(text).toContain('Explorer')
+    expect(text).toContain('Press one anywhere on the canvas')
+    expect(text).not.toContain('Explorer')
     expect(text.length).toBeLessThan(70)
     cleanup()
   })
@@ -326,43 +327,42 @@ describe('the not-ready moments, each as the one shared cover', () => {
 
     const name = () => screen.getByTestId('name')
 
-    test('two parts ticked: the name’s tooltip says the file is one of two and names the other — and no row is added', async () => {
+    /** Anything on the page about the pick: there is to be none while the file is drawn. */
+    const about = () => name().hasAttribute('data-focus') || /picked part|outside the|One of \d+ files/.test(`${document.body.textContent} ${name().getAttribute('title')}`)
+
+    test('a pick changes nothing on the page: the same file, the same name, the same rows, and nothing said', async () => {
       render(<App />)
       await greet({ epic: 'thesis', project: 'p', projectPath: '/tmp/p', passage: pointed, parts: parts() })
-      /* Nothing picked: the page as it always was. */
       expect(name().getAttribute('title')).toBe(pointed.path)
-      expect(name().hasAttribute('data-focus')).toBe(false)
       const rows = () => screen.getByTestId('scroller').parentElement!.children.length
-      const before = rows()
+      const before = { rows: rows(), html: document.body.innerHTML }
 
-      await said(['methods'])
-      expect(name().getAttribute('title')).toBe(pointed.path)
-
-      await said(['methods', 'results'])
-      expect(name().getAttribute('data-focus')).toBe('one-of')
-      expect(name().getAttribute('title')).toContain('One of 2 files in the picked parts (Methods, Results). The other is chapters/4_results.tex.')
-      /* In the pick, so drawn as ever; and nothing was put between the name and the file. */
-      expect(name().className).not.toContain('text-muted-foreground')
-      expect(rows()).toBe(before)
-      expect(screen.queryByTestId('focus')).toBeNull()
+      for (const picked of [['methods'], ['methods', 'results'], []]) {
+        await said(picked)
+        expect(name().getAttribute('title')).toBe(pointed.path)
+        expect(about()).toBe(false)
+        expect(rows()).toBe(before.rows)
+        expect(document.body.innerHTML).toBe(before.html)
+      }
       /* The ticks chose nothing and read nothing: the same one file, asked for once. */
       expect(asked.filter((url) => url.includes('3_methods.tex'))).toHaveLength(1)
-
-      await said([])
-      expect(name().hasAttribute('data-focus')).toBe(false)
     })
 
-    test('a file outside the ticked part is shown all the same, with its name set back', async () => {
+    test('keep: a pointed file no picked part has is drawn all the same, its name as ever', async () => {
       render(<App />)
       await greet({ epic: 'thesis', project: 'p', projectPath: '/tmp/p', passage: pointed, parts: parts('results') })
-      expect(name().getAttribute('data-focus')).toBe('outside')
-      expect(name().className).toContain('text-muted-foreground')
-      expect(name().getAttribute('title')).toContain('This file is outside the picked part (Results).')
       expect(screen.getByTestId('scroller').textContent).toContain('const a = 1')
-      /* The passage moves into the part: the name stands as usual. */
-      await said(['results'], { ...passage, path: `${DIR}/chapters/4_results.tex` })
-      expect(name().hasAttribute('data-focus')).toBe(false)
       expect(name().className).not.toContain('text-muted-foreground')
+      expect(about()).toBe(false)
+      expect(screen.queryByTestId('none-in-focus')).toBeNull()
+    })
+
+    test('the same from a host that sends a part’s documents', async () => {
+      render(<App />)
+      const documents = [{ id: 'results', heading: 'Results', refs: [], picked: true, documents: ['.kehikot/paper/thesis/chapters/4_results.tex'], files: [] }]
+      await greet({ epic: 'thesis', project: 'p', projectPath: '/tmp/p', passage: pointed, parts: documents })
+      expect(screen.getByTestId('scroller').textContent).toContain('const a = 1')
+      expect(about()).toBe(false)
     })
   })
 
