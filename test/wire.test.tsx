@@ -6,7 +6,7 @@ import { join } from 'node:path'
 
 import { resetServerStanding, serverStanding } from 'kehikot-module-protocol/client'
 
-import { TICKET, answer } from '../doors.ts'
+import { TICKET, answer, setHostAsk } from '../doors.ts'
 import { useSource } from '../src/use-source.ts'
 
 /* The page's one read against the real door, with `fetch` as the only thing faked. */
@@ -17,6 +17,7 @@ writeFileSync(join(root, 'a.ts'), 'const a = 1\n')
 const passage = { path: join(root, 'a.ts'), from: null, to: null, page: null, quoted: '', section: null }
 
 const realFetch = globalThis.fetch
+setHostAsk(async () => true)
 let carried = ''
 
 beforeEach(() => {
@@ -29,7 +30,7 @@ beforeEach(() => {
   globalThis.fetch = (async (url: string, init: RequestInit = {}) => {
     carried = (init.headers as Record<string, string>)['x-module-ticket'] ?? ''
     const at = new URL(url, 'http://localhost')
-    const said = answer(String(init.method ?? 'GET'), at.pathname, at.searchParams, null, carried)
+    const said = await answer(String(init.method ?? 'GET'), at.pathname, at.searchParams, null, carried)
     return new Response(JSON.stringify(said?.body), { status: said?.status ?? 500 })
   }) as unknown as typeof fetch
 })
