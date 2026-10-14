@@ -136,7 +136,10 @@ bun run typecheck
 `SOURCE_ROOTS` never affects the other fence, which is unconditional: whatever
 the root is, no path in any request can leave it. Nor the rule in
 `file/withheld.ts`: a file that by its name holds what a program signs in with
-(`.env`, a private key, anything inside `.git`) is not shown.
+(`.env`, a private key, anything inside `.git`) is not given to an agent (`/mcp`).
+The person's own page shows `.env*`, `.netrc`, `.npmrc` and `.pgpass` and marks
+them "private" (title: "Agents cannot read this file."); private keys and
+anything inside `.git`, `.ssh`, `.aws` or `.gnupg` are shown to nobody.
 
 ## The numbers, and where they came from
 

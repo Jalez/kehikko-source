@@ -94,3 +94,53 @@ describe('a file that is not shown, at the reader', () => {
     expect(said('.gitignore')).toBe('node_modules')
   })
 })
+
+describe('the person’s page and the agents’ door', () => {
+  const scratch = mkdtempSync(join(tmpdir(), 'source-page-'))
+  const root = realpathSync(scratch)
+  const outside = mkdtempSync(join(tmpdir(), 'source-outside-'))
+  afterAll(() => {
+    rmSync(scratch, { recursive: true, force: true })
+    rmSync(outside, { recursive: true, force: true })
+  })
+  mkdirSync(join(root, '.git'), { recursive: true })
+  writeFileSync(join(root, '.env'), 'TOKEN=FAKE\n')
+  writeFileSync(join(root, '.gitignore'), 'node_modules\n')
+  writeFileSync(join(root, '.git', 'config'), '[core]\n')
+  writeFileSync(join(root, 'id_rsa'), 'FAKE KEY\n')
+  writeFileSync(join(root, 'a.pem'), 'FAKE\n')
+  writeFileSync(join(outside, 'secret.txt'), 'OUTSIDE\n')
+  symlinkSync(join(outside, 'secret.txt'), join(root, 'out.txt'))
+  symlinkSync(join(root, '.git'), join(root, 'innocent'))
+
+  const page = (at: string) => open(root, at, null, 'page')
+  const agent = (at: string) => open(root, at, null)
+
+  test('.env is shown to the page, marked hidden, and refused to the door', () => {
+    const seen = page('.env')
+    expect(seen.kind).toBe('text')
+    expect(seen.kind === 'text' && seen.text).toBe('TOKEN=FAKE')
+    expect(seen.kind === 'text' && seen.hidden).toBe(true)
+    expect(agent('.env')).toEqual({ kind: 'refused', error: WITHHELD })
+  })
+
+  test('an ordinary dot-file is shown to both and is not marked', () => {
+    const seen = page('.gitignore')
+    expect(seen.kind === 'text' && seen.hidden).toBe(false)
+    expect(agent('.gitignore').kind).toBe('text')
+  })
+
+  test('.git internals and private-key names are refused on both paths', () => {
+    for (const at of ['.git/config', join(root, '.git', 'config'), 'innocent/config', 'id_rsa', 'a.pem']) {
+      expect([at, page(at).kind]).toEqual([at, 'refused'])
+      expect([at, agent(at).kind]).toEqual([at, 'refused'])
+    }
+  })
+
+  test('traversal, a link out of the project and an outside absolute path are refused on both paths', () => {
+    for (const at of ['../x', '../../etc/passwd', 'out.txt', join(outside, 'secret.txt'), '/etc/passwd']) {
+      expect([at, page(at).kind]).toEqual([at, 'refused'])
+      expect([at, agent(at).kind]).toEqual([at, 'refused'])
+    }
+  })
+})
