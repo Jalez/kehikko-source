@@ -90,6 +90,8 @@ export const BYTE_LEAD = 8_192
 
 /** One file, as this app is willing to describe it. */
 export interface Text {
+  /** Shown to the person but refused to agents; the page marks it. Only ever true on the page route. */
+  hidden: boolean
   kind: 'text'
   /** Where it is, absolute, as this app resolved it. */
   path: string
@@ -134,6 +136,7 @@ export interface Text {
 
 /** A file this app can see and will not decode. */
 export interface Binary {
+  hidden: boolean
   kind: 'binary'
   path: string
   size: number

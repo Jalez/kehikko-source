@@ -108,15 +108,33 @@ describe('/api/source', () => {
     }
   })
 
-  test('a file that by its name holds what a program signs in with is not shown', () => {
-    writeFileSync(join(scratch, '.env'), 'TOKEN=THE-CONTENTS\n')
+  test('a file that holds what a program signs in with is shown to the page, marked, and refused to the door', () => {
+    writeFileSync(join(scratch, '.env'), 'TOKEN=FAKE-CONTENTS\n')
     writeFileSync(join(scratch, '.gitignore'), 'node_modules\n')
     const reply = get('/api/source', { projectPath: root, path: '.env' })
-    expect(reply?.status).toBe(404)
-    expect(JSON.stringify(reply?.body)).not.toContain('THE-CONTENTS')
-    expect((reply?.body as { error: string }).error).toContain('does not show that file')
-    /* Another dot-file is a file like any other. */
-    expect(get('/api/source', { projectPath: root, path: '.gitignore' })?.status).toBe(200)
+    expect(reply?.status).toBe(200)
+    expect(reply?.body).toMatchObject({ text: 'TOKEN=FAKE-CONTENTS', hidden: true })
+    expect(get('/api/source', { projectPath: root, path: '.gitignore' })?.body).toMatchObject({ hidden: false })
+    /* The same path, at the door. */
+    const rpc = answer('POST', '/mcp', new URLSearchParams(), {
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'tools/call',
+      params: { name: 'shown', arguments: { projectPath: root, path: '.env' } },
+    })
+    const text = JSON.stringify(rpc?.body)
+    expect(text).not.toContain('FAKE-CONTENTS')
+    expect(text).toContain('does not show that file')
+  })
+
+  test('.git internals and a private key are refused to the page', () => {
+    mkdirSync(join(scratch, '.git'), { recursive: true })
+    writeFileSync(join(scratch, '.git', 'config'), '[core]\n')
+    writeFileSync(join(scratch, 'id_rsa'), 'FAKE\n')
+    for (const at of ['.git/config', 'id_rsa']) {
+      const reply = get('/api/source', { projectPath: root, path: at })
+      expect([at, reply?.status]).toEqual([at, 404])
+    }
   })
 
   test('a file comes back with its text and its language', () => {

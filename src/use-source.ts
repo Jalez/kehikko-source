@@ -49,7 +49,7 @@ export interface Source {
 
 export type Seen =
   | { kind: 'folder'; path: string }
-  | { kind: 'binary'; path: string; size: number; looks: string | null }
+  | { kind: 'binary'; path: string; size: number; looks: string | null; hidden?: boolean }
   | {
       kind: 'text'
       path: string
@@ -62,6 +62,8 @@ export type Seen =
       mark: { from: number; to: number } | null
       markLost: boolean
       language: string | null
+      /** Shown to the person, but not readable by agents. */
+      hidden?: boolean
     }
 
 export function useSource(projectPath: string | null, passage: Passage | null): Source {

@@ -3,7 +3,7 @@ import { closeSync, openSync, readSync, statSync } from 'node:fs'
 import { relative } from 'node:path'
 
 import { inside } from './confine.ts'
-import { WITHHELD, withheld } from './withheld.ts'
+import { WITHHELD, WITHHELD_PAGE, withheld, withheldFrom, type Asker } from './withheld.ts'
 import {
   BYTE_LEAD,
   LINE_LEAD,
@@ -77,13 +77,17 @@ export interface Wanted {
   to: number
 }
 
-export function open(root: string, at: string, wanted: Wanted | null): Reading {
+export function open(root: string, at: string, wanted: Wanted | null, who: Asker = 'agent'): Reading {
+  const sentence = who === 'page' ? WITHHELD_PAGE : WITHHELD
   /* As it was written, before the disk is touched: the sentence is about a name, not about whether it exists. */
-  if (withheld(at)) return { kind: 'refused', error: WITHHELD }
+  if (withheldFrom(at, who)) return { kind: 'refused', error: sentence }
   const path = inside(root, at)
   if (path === null) return { kind: 'refused', error: REFUSED }
   /* And as it resolved: `inside` answers with the real path, under the real root. */
-  if (withheld(relative(root, path))) return { kind: 'refused', error: WITHHELD }
+  const inner = relative(root, path)
+  if (withheldFrom(inner, who)) return { kind: 'refused', error: sentence }
+  /* Shown to the person, refused to agents: the page marks it. Judged by the name as written too. */
+  const hidden = who === 'page' && (withheld(inner) || withheld(at))
 
   let stat
   try {
@@ -130,12 +134,13 @@ export function open(root: string, at: string, wanted: Wanted | null): Reading {
         mark: null,
         markLost: wanted !== null,
         language: tongue(path),
+        hidden,
       }
     }
 
     const sniff = Buffer.alloc(Math.min(size, SNIFF_BYTES))
     readSync(fd, sniff, 0, sniff.length, 0)
-    if (binary(sniff)) return { kind: 'binary', path, size, looks: looksLike(path) }
+    if (binary(sniff)) return { kind: 'binary', path, size, looks: looksLike(path), hidden }
 
     const start = anchor(fd, size, wanted)
     const length = Math.min(MAX_BYTES, size - start)
@@ -201,6 +206,7 @@ export function open(root: string, at: string, wanted: Wanted | null): Reading {
          from "nothing was selected", and the page says a different sentence. */
       markLost: wanted !== null && trimmed.mark === null,
       language: tongue(path),
+      hidden,
     }
   } catch {
     return { kind: 'refused', error: REFUSED }

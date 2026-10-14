@@ -368,7 +368,7 @@ export function answer(
     const wanted = range(query.get('from'), query.get('to'))
     if (wanted === 'bad') return bad(HALF_RANGE)
 
-    const seen = open(root, at, wanted)
+    const seen = open(root, at, wanted, 'page')
     if (seen.kind === 'refused') return bad(seen.error, 404)
     return ok({ ok: true, root, ...seen })
   }

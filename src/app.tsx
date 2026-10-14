@@ -184,9 +184,19 @@ export function App() {
         <div className="flex min-w-0 shrink-0 items-baseline gap-2 border-b px-2 py-1">
           {/* The name, and its whole path one hover away. Nothing here is about the picked parts of the
               epic: the file is in hand and is drawn the same whatever is picked. */}
-          <span data-testid="name" title={text.path} className="min-w-0 flex-1 truncate text-[0.7rem] font-medium">
+          <span
+            data-testid="name"
+            title={text.hidden ? `${text.path}\nAgents cannot read this file.` : text.path}
+            className="min-w-0 flex-1 truncate text-[0.7rem] font-medium"
+          >
             {shown}
           </span>
+          {/* Beside the name, in the same row: no row of its own. Only for a file agents are refused. */}
+          {text.hidden ? (
+            <span data-testid="private" title="Agents cannot read this file." className="shrink-0 text-[0.65rem] text-muted-foreground">
+              private
+            </span>
+          ) : null}
           {/*
            * The one press in this module, and it exists only when it has
            * something to do.
