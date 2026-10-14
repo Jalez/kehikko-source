@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'nod
 import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { PACKAGE_VERSION } from 'kehikot-module-protocol'
+import { PACKAGE_VERSION, toolEffect } from 'kehikot-module-protocol'
 import { doorsHandler } from 'kehikot-module-protocol/serve'
 
 import { BUILD, TICKET, answer } from '../doors.ts'
@@ -203,6 +203,15 @@ describe('/mcp', () => {
     expect(body.result.tools[0]!.description).toContain('use your own reader')
   })
 
+  test('the tool says it only reads, and takes the project as `project`', () => {
+    const body = rpc('tools/list')?.body as { result: { tools: { annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean }; inputSchema: { properties: Record<string, unknown>; required: string[] } }[] } }
+    const [tool] = body.result.tools
+    expect(toolEffect(tool!)).toBe('reads')
+    expect(Object.keys(tool!.inputSchema.properties)).toContain('project')
+    expect(Object.keys(tool!.inputSchema.properties)).not.toContain('projectPath')
+    expect(tool!.inputSchema.required).toEqual(['project', 'path'])
+  })
+
   /* An agent is shown a file of a project this app's own page has been opened on, so the page opens it first. */
   beforeEach(() => {
     forgetKnown()
@@ -213,6 +222,20 @@ describe('/mcp', () => {
     const reply = rpc('tools/call', { name: 'shown', arguments: args })
     return { text: said(reply), isError: (reply?.body as { result?: { isError?: boolean } })?.result?.isError === true }
   }
+
+  test('\`project\` is read, and so is \`projectPath\`, the name before; a dotfile is still withheld from both', () => {
+    const now = shown({ project: root, path: 'a.ts' })
+    const before = shown({ projectPath: root, path: 'a.ts' })
+    expect([now.isError, before.isError]).toEqual([false, false])
+    expect(now.text).toContain('const a = 1')
+    expect(before.text).toBe(now.text)
+    writeFileSync(join(scratch, '.env'), 'TOKEN=FAKE-CONTENTS\n')
+    for (const args of [{ project: root }, { projectPath: root }]) {
+      const withheld = shown({ ...args, path: '.env' })
+      expect(withheld.text).toContain('does not show that file')
+      expect(withheld.text).not.toContain('FAKE-CONTENTS')
+    }
+  })
 
   test('a project the page has not been opened on is not read, and the refusal says what to do', () => {
     forgetKnown()
@@ -234,7 +257,7 @@ describe('/mcp', () => {
       for (const [projectPath, path] of [['/', 'etc/hosts'], ['/etc', 'hosts'], [homedir(), '.zshrc'], [elsewhere, 'far.txt']] as const) {
         const { text, isError } = shown({ projectPath, path })
         expect([projectPath, isError]).toEqual([projectPath, true])
-        expect(text).toContain('projectPath')
+        expect(text).toContain('Send project as')
         expect(text).not.toContain('FAR-WORDS')
       }
       /* And a file elsewhere named absolutely, from a project that is known, is no nearer. */
@@ -271,7 +294,7 @@ describe('/mcp', () => {
     const reply = rpc('tools/call', { name: 'shown', arguments: { path: 'a.ts' } })
     expect(reply?.status).toBe(200)
     expect((reply?.body as { result: { isError?: boolean } }).result.isError).toBe(true)
-    expect(said(reply)).toContain('projectPath')
+    expect(said(reply)).toContain('Send project as')
   })
 
   test('an unknown tool is refused by name', () => {

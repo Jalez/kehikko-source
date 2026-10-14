@@ -1,6 +1,7 @@
 import { configuredRoots, rootOf } from './file/confine.ts'
 import { open, type Wanted } from './file/read.ts'
 import { MAX_BYTES, MAX_LINES, MAX_PATH, bytes, offset, str } from './file/shape.ts'
+import { doorContext } from 'kehikot-module-protocol'
 import { establishBuild, mintTicket, refuseTicket } from 'kehikot-module-protocol/serve'
 
 import { ID, MANIFEST, VERSION } from './manifest.ts'
@@ -89,7 +90,7 @@ const bad = (why: string, status = 400): Reply => ({ status, body: { ok: false, 
  */
 const NO_ROOT_PAGE = 'Nothing has said which project is open, so there is nothing to show.'
 const NO_ROOT_AGENT =
-  'That did not say which project, or named one this app does not read. Send projectPath as the absolute directory '
+  'That did not say which project, or named one this app does not read. Send project as the absolute directory '
   + 'of a project that is open in the host with the Source container on its canvas: this app shows a file of a '
   + 'project once its own page has been opened on it (or one inside the directories its operator listed), and never '
   + 'takes a home folder or a whole disk as a project. This app will not guess: the only folder it could pick is its '
@@ -155,7 +156,7 @@ function tools() {
       inputSchema: {
         type: 'object',
         properties: {
-          projectPath: {
+          project: {
             type: 'string',
             description:
               'The absolute directory of the project. Required. This is the root, and nothing outside it can be '
@@ -175,8 +176,10 @@ function tools() {
             description: 'One past the last byte of the range. Needs `from`, and must be greater than it.',
           },
         },
-        required: ['projectPath', 'path'],
+        required: ['project', 'path'],
       },
+      /* It shows a window of a file and changes nothing: nothing is written, moved or removed. */
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
   ]
 }
@@ -235,7 +238,8 @@ function report(seen: ReturnType<typeof open>, asked: Wanted | null): string {
 function call(name: string, args: Record<string, unknown>): string {
   if (name !== 'shown') throw new Error(`no tool "${name.slice(0, 60)}" here`)
 
-  const root = rootOf(str(args.projectPath, MAX_PATH))
+  /* `project`, or `projectPath`, the name this door used before the protocol agreed one. */
+  const root = rootOf(str(doorContext(args).project, MAX_PATH))
   if (!root) throw new Error(NO_ROOT_AGENT)
 
   const at = str(args.path, MAX_PATH)
