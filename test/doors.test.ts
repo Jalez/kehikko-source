@@ -4,11 +4,10 @@ import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { PACKAGE_VERSION, toolEffect } from 'kehikot-module-protocol'
-import { doorsHandler } from 'kehikot-module-protocol/serve'
+import { doorsHandler, resolveDoorProject } from 'kehikot-module-protocol/serve'
 
-import { BUILD, TICKET, answer, setHostAsk } from '../doors.ts'
+import { BUILD, TICKET, answer, setHostAsk, setHostResolve } from '../doors.ts'
 import { forgetKnown } from '../file/confine.ts'
-import { hostAllows } from '../host-ask.ts'
 import { MANIFEST } from '../manifest.ts'
 
 /**
@@ -298,7 +297,7 @@ describe('/mcp', () => {
     const reply = (await rpc('tools/call', { name: 'shown', arguments: { path: 'a.ts' } }))
     expect(reply?.status).toBe(200)
     expect((reply?.body as { result: { isError?: boolean } }).result.isError).toBe(true)
-    expect(said(reply)).toContain('Send project as')
+    expect(said(reply)).toContain('`project` is its absolute folder')
   })
 
   test('an unknown tool is refused by name', async () => {
@@ -402,8 +401,55 @@ describe('the host holds the folder (protocol 1.4.0)', () => {
   })
 
   test('no host answering is a refusal too: it fails closed', async () => {
-    setHostAsk((folder) => hostAllows(folder, { env: { KEHIKOT_ORIGINS: 'http://127.0.0.1:9' }, fetch: (async () => { throw new Error('nobody is listening') }) as unknown as typeof fetch }))
+    setHostResolve((folder) => resolveDoorProject(folder, { env: { KEHIKOT_ORIGINS: 'http://127.0.0.1:9' }, fetch: (async () => { throw new Error('nobody is listening') }) as unknown as typeof fetch }))
     expect((await get('/api/source', { projectPath: root, path: 'a.ts' }))?.status).toBe(400)
+    const refused = await shown(root)
+    expect(refused.isError).toBe(true)
+    expect(refused.text).toBe(`${root} is not a project open in Kehikot.`)
+    expect(refused.text).not.toContain('const a = 1')
+  })
+
+  /* A host stub: `held` are the folders it holds (path to id), `former` the paths a project had (path to where it is now). */
+  const hostThat = (held: Record<string, string>, former: Record<string, string> = {}) =>
+    setHostResolve((folder) =>
+      resolveDoorProject(folder, {
+        env: { KEHIKOT_ORIGINS: 'http://127.0.0.1:9' },
+        fetch: (async (url: string) => {
+          const path = new URL(url).searchParams.get('path')!
+          const body = held[path] ? { ok: true, project: true, path, id: held[path] }
+            : former[path] ? { ok: true, project: false, movedTo: former[path], id: held[former[path]] }
+            : { ok: true, project: false }
+          return new Response(JSON.stringify(body), { status: 200 })
+        }) as unknown as typeof fetch,
+      }),
+    )
+  const ID = 'a1b2c3d4-0000-4000-8000-000000000001'
+
+  test('a former path is followed to where the project is now, and the answer says so', async () => {
+    hostThat({ [root]: ID }, { '/was/here': root })
+    const read = await shown('/was/here')
+    expect(read.isError).toBe(false)
+    expect(read.text).toContain('const a = 1')
+    expect(read.text).toContain(`The project at /was/here has moved to ${root}`)
+    const page = await get('/api/source', { projectPath: '/was/here', path: 'a.ts' })
+    expect(page?.status).toBe(200)
+    expect((page?.body as { root: string }).root).toBe(root)
+  })
+
+  test('an unrelated folder at the old path is refused and nothing of it is read', async () => {
+    const other = realpathSync(mkdtempSync(join(tmpdir(), 'source-other-')))
+    writeFileSync(join(other, 'a.ts'), 'SECRET-WORDS\n')
+    try {
+      /* The old path moved somewhere the host does not hold as the same project. */
+      hostThat({}, { [other]: root })
+      const read = await shown(other)
+      expect(read.isError).toBe(true)
+      expect(read.text).not.toContain('SECRET-WORDS')
+      expect(read.text).toContain(`was moved to ${root}`)
+      expect((await get('/api/source', { projectPath: other, path: 'a.ts' }))?.status).toBe(400)
+    } finally {
+      rmSync(other, { recursive: true, force: true })
+    }
   })
 
   test('the shown tool reads what the host holds and refuses what it does not', async () => {
