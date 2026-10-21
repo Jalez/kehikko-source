@@ -1,9 +1,11 @@
 import { MANIFEST_KIND, PROTOCOL, manifestSchema, type Manifest } from 'kehikot-module-protocol'
 
 import { MAX_BYTES, bytes } from './file/shape.ts'
+import pkg from './package.json'
 
 export const ID = 'kehikot.source'
-export const VERSION = '1.0.0'
+/** The module's version: package.json's, the one place it is written. A release is tagged with it. */
+export const VERSION: string = pkg.version
 /** The port `serves()` takes when nothing else has it and no host said one in $PORT. `register.ts` reads it too. */
 export const PREFERRED_PORT = 7980
 
