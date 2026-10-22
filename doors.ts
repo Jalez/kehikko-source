@@ -1,4 +1,5 @@
 import { configuredRoots, rootOf } from './file/confine.ts'
+import { changeFile } from './file/change.ts'
 import { open, type Wanted } from './file/read.ts'
 import { MAX_BYTES, MAX_LINES, MAX_PATH, bytes, offset, str } from './file/shape.ts'
 import { DOOR_PROJECT_SAYS, doorContext } from 'kehikot-module-protocol'
@@ -293,8 +294,9 @@ async function mcp(rpc: Rpc): Promise<Reply> {
       serverInfo: { name: ID, version: VERSION },
       instructions:
         'The container a person reads a file in, on a canvas. It follows the passage the canvas is pointed at and '
-        + 'shows that file, bounded and with real line numbers. It is read-only and it never points the canvas '
-        + 'anywhere. For reading files, use your own reader; ask this what the person can SEE.',
+        + 'shows that file, bounded and with real line numbers — or, when the canvas points at a line of a change '
+        + '(a code location), that file as the change has it. It is read-only, and points the canvas only when the '
+        + 'person presses "Comment on this line". For reading files, use your own reader; ask this what the person can SEE.',
     })
   }
   /* A notification carries no id and is answered with nothing. */
@@ -401,6 +403,37 @@ export async function answer(
     const seen = open(root, at, wanted, 'page')
     if (seen.kind === 'refused') return bad(seen.error, 404)
     return ok({ ok: true, root, ...seen })
+  }
+
+  /*
+   * A file as it is in a change, at the commit a location names or at the
+   * change's head (or base, for `side=old`). The page's door, behind the same
+   * ticket and the same project check as `/api/source`; the reading is
+   * `file/change.ts`, and it writes nothing anywhere.
+   */
+  if (path === '/api/change' && method === 'GET') {
+    const stranger = refuseTicket(ticket, TICKET, 'That was not asked by this app’s own page.')
+    if (stranger) return stranger
+    const named = str(query.get('projectPath'), MAX_PATH)
+    if (!named) return bad(NO_ROOT_PAGE)
+    const project = await hostResolve(named)
+    if (!project.ok) return bad(project.reason === 'moved' ? project.why : NOT_A_PROJECT_PAGE)
+    const root = rootOf(project.path, 'page')
+    if (!root) return bad(NOT_A_PROJECT_PAGE)
+    const change = str(query.get('change'), 200)
+    if (!change) return bad('Nothing named a change.')
+    const read = await changeFile({
+      root,
+      change,
+      url: query.get('url') ?? undefined,
+      path: query.get('path') ?? undefined,
+      side: query.get('side') ?? undefined,
+      line: query.get('line') ?? undefined,
+      endLine: query.get('endLine') ?? undefined,
+      commit: query.get('commit') ?? undefined,
+    })
+    if (!read.ok) return bad(read.error, read.status)
+    return ok({ ok: true, root, ...read.seen, commit: read.commit, change: read.change, side: read.side, from: read.from })
   }
 
   /* An unknown path under `/api/` is ours to refuse rather than Vite's to try

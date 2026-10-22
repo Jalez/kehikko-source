@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, type Ref } from 'react'
+import { useEffect, useMemo, useRef, type MouseEvent, type Ref } from 'react'
 
 import { lines as split, type Line } from '@/lib/highlight.ts'
 import type { Room } from '@/view/room.ts'
@@ -53,9 +53,25 @@ export interface CodeProps {
   firstLine: number
   mark: { from: number; to: number } | null
   room: Room
+  /**
+   * Scroll to the mark again when this changes, though the text and the mark
+   * did not: somebody pointed at the same lines again (a location's `at`).
+   */
+  scrollKey?: string | null
+  /**
+   * A line was right-clicked: the page offers "Comment on this line" there.
+   * Absent, the browser's own menu, as before — a file off the disk has no
+   * change to comment on.
+   */
+  onLineMenu?: (line: number, event: MouseEvent<HTMLDivElement>) => void
+  /**
+   * Whole lines to tint — a code location's `line` to `endLine`, in the file's
+   * numbering — empty ones too, and scrolled to like a mark.
+   */
+  markLines?: { from: number; to: number } | null
 }
 
-export function Code({ text, language, firstLine, mark, room }: CodeProps) {
+export function Code({ text, language, firstLine, mark, room, scrollKey = null, onLineMenu, markLines = null }: CodeProps) {
   /*
    * Highlighting is memoized on the four things that change it and on nothing
    * else.
@@ -86,7 +102,7 @@ export function Code({ text, language, firstLine, mark, room }: CodeProps) {
   const marked = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
     marked.current?.scrollIntoView({ block: 'center', behavior: 'auto' })
-  }, [text, mark])
+  }, [text, mark, scrollKey, markLines?.from, markLines?.to])
 
   const leading = room.dense ? LINE_HEIGHT.dense : LINE_HEIGHT.roomy
   let first = true
@@ -98,7 +114,8 @@ export function Code({ text, language, firstLine, mark, room }: CodeProps) {
       style={{ lineHeight: `${leading}px` }}
     >
       {rows.map((row) => {
-        const anchor = row.marked && first
+        const tinted = markLines !== null && row.number >= markLines.from && row.number <= markLines.to
+        const anchor = (row.marked || tinted) && first
         if (anchor) first = false
         return (
           <Row
@@ -106,6 +123,8 @@ export function Code({ text, language, firstLine, mark, room }: CodeProps) {
             row={row}
             gutter={room.numbers ? room.gutter : 0}
             ref={anchor ? marked : null}
+            onMenu={onLineMenu}
+            tint={tinted}
           />
         )
       })}
@@ -113,14 +132,28 @@ export function Code({ text, language, firstLine, mark, room }: CodeProps) {
   )
 }
 
-function Row({ row, gutter, ref }: { row: Line; gutter: number; ref: Ref<HTMLDivElement> | null }) {
+function Row({
+  row,
+  gutter,
+  ref,
+  onMenu,
+  tint,
+}: {
+  row: Line
+  gutter: number
+  ref: Ref<HTMLDivElement> | null
+  onMenu?: CodeProps['onLineMenu']
+  tint: boolean
+}) {
   return (
     <div
       ref={ref}
+      onContextMenu={onMenu ? (event) => onMenu(row.number, event) : undefined}
       data-testid="line"
       data-line={row.number}
       data-marked={row.marked ? 'yes' : undefined}
-      className="min-w-0"
+      data-tinted={tint ? 'yes' : undefined}
+      className={tint ? 'min-w-0 bg-mark/50' : 'min-w-0'}
     >
       {gutter ? (
         <span

@@ -1,11 +1,13 @@
 import type { HostEvents } from 'kehikot-module-protocol/client'
 import { Cover, coverFor, useHost, useServerStanding, type CoverState, useFocus } from 'kehikot-module-protocol/client/react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
 
 import { bytes } from '../file/shape.ts'
 import { ID } from '../manifest.ts'
 
 import { Button } from '@/components/ui/button.tsx'
+import { changeHeader, commentAt, targetFrom, useRows } from '@/live/change.ts'
+import { useChange } from '@/use-change.ts'
 import { useSource } from '@/use-source.ts'
 import { Code } from '@/view/code.tsx'
 import { NOUN, anchorOf, inHand } from '@/view/focus.ts'
@@ -72,10 +74,31 @@ export function App() {
   /* The protocol's host hook: where the page stands, the theme on `<html>`, the flattened context.
      The passage is applied on every context including when it is null, and never remembered: a
      container that held onto the last one would go on showing a file the reader closed. */
-  const { where, projectPath, passage, parts, epic, resize } = useHost(ID, { onGoto })
+  const { where, projectPath, passage, parts, epic, resize, location, selection, request, locate, context } = useHost(ID, { onGoto })
   /* How this page's own server last answered: `down` when nothing did, `stale` when it restarted under this page. */
   const server = useServerStanding()
-  const { seen, trouble, retry } = useSource(projectPath, passage)
+
+  /*
+   * A change's file, when the canvas points at one (protocol 2.13.0): a code
+   * location, or one change picked with a file chosen. See `live/change.ts`.
+   * The tracker reading says which picked refs are changes and where they are;
+   * it is asked again when the reading moves.
+   */
+  const asking = useMemo(
+    () => [...new Set([...(location ? [location.change] : []), ...selection])].slice(0, 16),
+    [location, selection],
+  )
+  const rows = useRows(request, asking, context?.tracker.at ?? null)
+  const target = useMemo(
+    () => targetFrom({ location, passage, projectPath, selection, rows }),
+    [location, passage, projectPath, selection, rows],
+  )
+  const fromChange = useChange(projectPath, target)
+  /* The disk only while no change's file is asked for: one file at a time, from one place. */
+  const fromDisk = useSource(projectPath, target ? null : passage)
+  const { seen, trouble, retry } = target ? fromChange : fromDisk
+  const commit = target && fromChange.seen ? fromChange.seen.commit : null
+  const markLines = target && target.line !== null ? { from: target.line, to: target.endLine ?? target.line } : null
 
   /*
    * The scroll container, measured on both axes.
@@ -112,8 +135,74 @@ export function App() {
    */
   const focus = useFocus({ parts, epic, projectPath })
   const read = seen?.kind === 'text' ? seen : null
-  const narrowed = focus.narrow(read ? [read] : [], anchorOf, { noun: NOUN, keep: () => inHand(passage) })
+  const narrowed = focus.narrow(read ? [read] : [], anchorOf, { noun: NOUN, keep: () => inHand(passage) || target !== null })
   const text = narrowed.shown[0] ?? null
+
+  /*
+   * "Comment on this line": the one place this page points the canvas, and only
+   * at a change's file, on a press. It sends a code location with intent
+   * `comment` for whoever writes reviews on the canvas (Review) to open a
+   * comment there. Lines picked with a text selection, or the line
+   * right-clicked; the commit is the one the file was read at.
+   */
+  const [lines, setLines] = useState<{ from: number; to: number } | null>(null)
+  useEffect(() => {
+    const lineOf = (node: Node | null): number | null => {
+      const element = node === null ? null : node.nodeType === 1 ? (node as Element) : node.parentElement
+      const row = element?.closest('[data-line]') as HTMLElement | null | undefined
+      return row && scroller.current?.contains(row) ? Number(row.dataset.line) : null
+    }
+    const heard = () => {
+      const picked = document.getSelection()
+      const a = picked && !picked.isCollapsed ? lineOf(picked.anchorNode) : null
+      const b = picked && !picked.isCollapsed ? lineOf(picked.focusNode) : null
+      const next = a === null || b === null ? null : { from: Math.min(a, b), to: Math.max(a, b) }
+      setLines((was) => (was?.from === next?.from && was?.to === next?.to ? was : next))
+    }
+    document.addEventListener('selectionchange', heard)
+    return () => document.removeEventListener('selectionchange', heard)
+  }, [])
+  const [menu, setMenu] = useState<{ from: number; to: number; x: number; y: number } | null>(null)
+  const [said, setSaid] = useState<string | null>(null)
+  useEffect(() => setSaid(null), [target?.change, target?.path])
+  const comment = useCallback(
+    async (from: number, to: number) => {
+      setMenu(null)
+      if (!target || !commit) return
+      const answer = await locate(commentAt(target, commit, from, to), 'comment')
+      setSaid(
+        answer === null
+          ? 'The host did not take it: nothing framing this page points at code.'
+          : answer.outcome === 'taken'
+            ? null
+            : answer.why || 'The host did not take it.',
+      )
+    },
+    [target, commit, locate],
+  )
+  const onLineMenu = useCallback(
+    (line: number, event: MouseEvent<HTMLDivElement>) => {
+      event.preventDefault()
+      const within = lines && line >= lines.from && line <= lines.to ? lines : { from: line, to: line }
+      setMenu({ ...within, x: event.clientX, y: event.clientY })
+    },
+    [lines],
+  )
+  useEffect(() => {
+    if (!menu) return
+    const close = (event: Event) => {
+      if (event instanceof KeyboardEvent && event.key !== 'Escape') return
+      if (event.target instanceof Element && event.target.closest('[data-testid="line-menu"]')) return
+      setMenu(null)
+    }
+    document.addEventListener('pointerdown', close)
+    document.addEventListener('keydown', close)
+    return () => {
+      document.removeEventListener('pointerdown', close)
+      document.removeEventListener('keydown', close)
+    }
+  }, [menu])
+
   const lastLine = text ? text.firstLine + (text.text ? text.text.split('\n').length - 1 : 0) : 1
   const room = useMemo(() => measure(size, lastLine), [size, lastLine])
 
@@ -141,12 +230,15 @@ export function App() {
    * viewer that can disagree with the canvas about which file is open.
    */
   const ready: CoverState | null = coverFor({ where, projectPath, server })
-  const cover = ready === 'down' && !passage ? null : ready
+  const cover = ready === 'down' && !passage && !target ? null : ready
   if (cover && cover !== 'down') return <Cover state={cover} name="Source" />
 
-  const shown = text && projectPath ? label(text.path, projectPath, room.name) : ''
+  const shown = target ? changeHeader(target, commit) : text && projectPath ? label(text.path, projectPath, room.name) : ''
+  const whole = target
+    ? `${changeHeader(target, commit)}\n${target.side === 'old' ? 'Before the change (its base)' : 'As the change has it (its head)'}${commit ? `, commit ${commit}` : ''}`
+    : (text?.path ?? '')
 
-  const screen = !passage ? (
+  const screen = !passage && !target ? (
     <NoPassage />
   ) : trouble ? (
     <Trouble said={trouble} />
@@ -186,7 +278,7 @@ export function App() {
               epic: the file is in hand and is drawn the same whatever is picked. */}
           <span
             data-testid="name"
-            title={text.hidden ? `${text.path}\nAgents cannot read this file.` : text.path}
+            title={text.hidden ? `${whole}\nAgents cannot read this file.` : whole}
             className="min-w-0 flex-1 truncate text-[0.7rem] font-medium"
           >
             {shown}
@@ -208,12 +300,24 @@ export function App() {
            * no range, because a permanently disabled control in a strip this
            * narrow is width spent on a thing that never works.
            */}
-          {text.mark ? (
+          {/* The press that points: only at a change's file, and only while lines are picked. */}
+          {target && commit && lines ? (
+            <Button
+              size="container"
+              variant="ghost"
+              data-testid="comment"
+              title="Ask for a review comment on the picked lines"
+              onClick={() => void comment(lines.from, lines.to)}
+            >
+              {lines.from === lines.to ? 'Comment on this line' : 'Comment on these lines'}
+            </Button>
+          ) : null}
+          {text.mark || markLines ? (
             <Button
               size="container"
               variant="ghost"
               data-testid="to-mark"
-              onClick={() => scroller.current?.querySelector('[data-marked]')?.scrollIntoView({ block: 'center' })}
+              onClick={() => scroller.current?.querySelector('[data-tinted], [data-marked]')?.scrollIntoView({ block: 'center' })}
             >
               selection
             </Button>
@@ -222,7 +326,17 @@ export function App() {
       ) : null}
 
       <div ref={scroller} data-testid="scroller" className="min-h-0 min-w-0 flex-1 overflow-y-auto px-2 py-1">
-        <Code text={text.text} language={text.language} firstLine={text.firstLine} mark={text.mark} room={room} />
+        <Code
+          text={text.text}
+          language={text.language}
+          firstLine={text.firstLine}
+          /* A location marks whole lines; a passage marks the bytes it carries. */
+          mark={target ? null : text.mark}
+          markLines={markLines}
+          scrollKey={target?.at ?? null}
+          room={room}
+          onLineMenu={target && commit ? onLineMenu : undefined}
+        />
       </div>
 
       {/*
@@ -238,12 +352,28 @@ export function App() {
        * would be a request for forty megabytes to draw twelve lines from. A file
        * that large is one to search rather than to read.
        */}
-      {!text.whole || text.markLost ? (
+      {said || !text.whole || text.markLost ? (
         <p data-testid="notice" className="min-w-0 shrink-0 border-t px-2 py-0.5 text-[0.65rem] text-muted-foreground">
-          {text.markLost
-            ? 'The selection is outside what this shows.'
-            : `${bytes(text.read)} of ${bytes(text.size)}, from line ${text.firstLine.toLocaleString()}.`}
+          {said
+            ? said
+            : text.markLost
+              ? target
+                ? 'That line is not in what this shows of the file at this commit.'
+                : 'The selection is outside what this shows.'
+              : `${bytes(text.read)} of ${bytes(text.size)}, from line ${text.firstLine.toLocaleString()}.`}
         </p>
+      ) : null}
+      {menu ? (
+        <div
+          data-testid="line-menu"
+          role="menu"
+          className="fixed z-10 rounded-md border bg-background p-0.5 shadow-md"
+          style={{ left: menu.x, top: menu.y }}
+        >
+          <Button size="container" variant="ghost" role="menuitem" onClick={() => void comment(menu.from, menu.to)}>
+            {menu.from === menu.to ? 'Comment on this line' : `Comment on lines ${menu.from}–${menu.to}`}
+          </Button>
+        </div>
       ) : null}
     </div>
   )
