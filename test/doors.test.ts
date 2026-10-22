@@ -60,12 +60,14 @@ describe('what is not here', () => {
     }
   })
 
-  test('the manifest asks for no capabilities at all', async () => {
-    /* This module is the purest consumer on the canvas: it reads the context and
-       calls nothing. If `passage:set` ever appears here, the question to answer
-       first is what happens when the container next door disagrees about where
-       the reader is. */
-    expect(MANIFEST.declares.uses).toEqual([])
+  test('the manifest asks for the tracker reading and a code location, and never to point a passage or a selection', async () => {
+    /* It reads the context, asks which picked refs are changes, and points only
+       on "Comment on this line" (1.2.0). If `passage:set` ever appears here, the
+       question to answer first is what happens when the container next door
+       disagrees about where the reader is. */
+    expect(MANIFEST.declares.uses).toEqual(['trackers:read', 'location:set'])
+    expect(MANIFEST.declares.uses).not.toContain('passage:set')
+    expect(MANIFEST.declares.uses).not.toContain('selection:set')
   })
 
   test('the manifest declares storage, which is what closes the CORS hole', async () => {

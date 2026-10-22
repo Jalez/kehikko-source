@@ -45,6 +45,23 @@ export const PREFERRED_PORT = 7980
  * merits, in a version that has watched two containers not fight. Not a click
  * handler added because it was easy.
  *
+ * ## A change's file, and the one press that points (1.2.0, protocol 2.13.0)
+ *
+ * The canvas can now point at a line of a CHANGE — `context.location`, set by
+ * Review when a comment's reference is pressed and by Diff when a line number
+ * is. This module follows that too: it shows the file as the change has it, at
+ * the commit the location names (or the change's head), read out of the
+ * commit and never off the disk, scrolled to the lines with them tinted. And
+ * when one change is picked and the passage names a file, it shows that file
+ * at the change's head.
+ *
+ * It points in exactly one way, and the argument above is why the way is so
+ * narrow: "Comment on this line", on a change's file, on a press, sends a
+ * location with intent `comment` — a request for whoever writes reviews here
+ * to open a comment. It never sets a passage or a selection, never points on
+ * a click or a scroll, and the location it sends is the place it is already
+ * showing, so following it moves nothing here: no two containers argue.
+ *
  * ## Read-only, and it is a stronger claim than the explorer's
  *
  * There is no create, no rename, no move, no delete, no save, no edit. Not "not
@@ -64,6 +81,9 @@ export const PREFERRED_PORT = 7980
  * ## What is not declared
  *
  * - **`passage:set` — no**, for the whole page of reasons above.
+ * - **`location:set` — yes, for "Comment on this line" alone.** See above.
+ * - **`trackers:read` — yes**, to learn which picked refs are changes and
+ *   where they are (a row's kind and URL). Nothing else of the reading is read.
  * - **`selection:set` — no.** Same argument arriving by a different road: this
  *   app knows about a selection only because it was told about one, and
  *   repeating it back is noise on the wire at best and a loop at worst.
@@ -174,7 +194,7 @@ export const MANIFEST: Manifest = manifestSchema.parse({
   /* Where a host files this module in its list, most fitting first. */
   tags: ['code'],
   summary:
-    'The file the canvas is pointed at, shown — with the range a passage carries highlighted. It reads and never writes.',
+    'The file the canvas is pointed at, shown — with the range a passage carries highlighted, or a change’s file at its commit, at the line. It reads and never writes.',
   /**
    * What an agent should do about this module, given that it is here.
    *
@@ -196,8 +216,8 @@ export const MANIFEST: Manifest = manifestSchema.parse({
     + `question is what the PERSON can see: it applies this container's own bounds (${bytes(MAX_BYTES)}, first line `
     + 'numbered as it really is) and returns exactly what is on their screen, which is what to reference when you '
     + 'talk to them about a line. This module writes nothing: it cannot edit, save, create, rename or delete, and it '
-    + 'never points the canvas anywhere — it is a consumer only, so do not expect pressing anything here to move the '
-    + 'other containers.',
+    + 'points the canvas only when the person presses "Comment on this line" on a change’s file, which asks Review for a '
+    + 'comment there. It follows a code location (context.location): to have it show a line of a change, set one.',
   entry: '/app',
   modes: [{ id: 'source', label: 'Source', scope: 'epic' }],
   mcp: {
@@ -214,12 +234,13 @@ export const MANIFEST: Manifest = manifestSchema.parse({
    * in hand, so a pick of the epic's parts takes nothing away, and nothing is
    * said about the pick while the file is drawn (`src/view/focus.ts`).
    */
-  reacts: ['passage', 'parts'],
+  reacts: ['passage', 'location', 'selection', 'parts'],
   declares: {
     protocol: `>=${PROTOCOL} <${PROTOCOL + 1}`,
-    /* Empty, and the essay above is mostly about why. This module calls nothing
-       on the host: it listens, it draws, and it answers `view.goto` with a no. */
-    uses: [],
+    /* Two, and the essay above is mostly about why there are not more: the
+       tracker reading, to know which picked ref is a change and where; and a
+       code location, sent on "Comment on this line" and nothing else. */
+    uses: ['trackers:read', 'location:set'],
     storage: true,
     prompt: false,
   },

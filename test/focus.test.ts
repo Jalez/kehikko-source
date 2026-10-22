@@ -78,9 +78,9 @@ describe('the one sentence', () => {
 
 describe('what the manifest says about parts', () => {
   test('it reacts to them, and no longer says it has nothing to do with them', () => {
-    expect(MANIFEST.reacts).toEqual(['passage', 'parts'])
+    expect(MANIFEST.reacts).toEqual(['passage', 'location', 'selection', 'parts'])
     expect(MANIFEST.partless).toBeUndefined()
-    /* Still the purest consumer: following the pick asks the host for nothing. */
-    expect(MANIFEST.declares.uses).toEqual([])
+    /* Following the pick asks the host for nothing: neither capability is about parts. */
+    expect(MANIFEST.declares.uses).not.toContain('parts:set')
   })
 })

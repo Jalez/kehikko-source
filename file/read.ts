@@ -121,97 +121,120 @@ export function open(root: string, at: string, wanted: Wanted | null, who: Asker
   }
 
   try {
-    if (size === 0) {
-      return {
-        kind: 'text',
-        path,
-        size: 0,
-        read: 0,
-        at: 0,
-        text: '',
-        firstLine: 1,
-        whole: true,
-        mark: null,
-        markLost: wanted !== null,
-        language: tongue(path),
-        hidden,
-      }
-    }
-
-    const sniff = Buffer.alloc(Math.min(size, SNIFF_BYTES))
-    readSync(fd, sniff, 0, sniff.length, 0)
-    if (binary(sniff)) return { kind: 'binary', path, size, looks: looksLike(path), hidden }
-
-    const start = anchor(fd, size, wanted)
-    const length = Math.min(MAX_BYTES, size - start)
-    let window = Buffer.alloc(length)
-    readSync(fd, window, 0, length, start)
-
-    /*
-     * A window that stopped short of the end is trimmed back to the last
-     * newline, so the bottom of the view is a whole line rather than however
-     * many characters were left in the budget.
-     *
-     * Unless there is no newline in it at all, which is what a minified bundle
-     * looks like: 256 KiB of one line. Trimming that to the last newline would
-     * leave nothing, and answering an empty document for a file that is plainly
-     * full is worse than showing a quarter of a very long line. The page wraps
-     * it and says how much is missing.
-     */
-    const cutShort = start + length < size
-    if (cutShort) {
-      const lastBreak = window.lastIndexOf(0x0a)
-      if (lastBreak > 0) window = window.subarray(0, lastBreak)
-    }
-
-    let text = window.toString('utf8')
-    const read = window.length
-    /*
-     * The trailing newline of a complete file is dropped, and it is not counted
-     * as something missing.
-     *
-     * A file that ends in a newline has, by every editor's reckoning, as many
-     * lines as it has newlines — not one more. Splitting the text as-is
-     * produces a final empty string, which draws as a phantom blank line at the
-     * bottom of every well-formed file in the project.
-     */
-    if (!cutShort && text.endsWith('\n')) text = text.slice(0, -1)
-
-    const mark = place(window, start, wanted, text.length)
-    const firstLine = 1 + newlinesBefore(fd, start)
-
-    const trimmed = capLines(text, mark)
-    /*
-     * The byte offset of the first line SHOWN, which is not the offset the read
-     * started at once lines have been dropped from the front.
-     *
-     * Measured rather than tracked, because the alternative is carrying a byte
-     * offset alongside a character offset through three transformations and
-     * having them agree. `Buffer.byteLength` over at most 256 KiB is cheap and
-     * cannot drift.
-     */
-    const shownAt = start + Buffer.byteLength(text.slice(0, trimmed.shift), 'utf8')
-
-    return {
-      kind: 'text',
-      path,
-      size,
-      read: trimmed.dropped ? Buffer.byteLength(trimmed.text, 'utf8') : read,
-      at: shownAt,
-      text: trimmed.text,
-      firstLine: firstLine + trimmed.firstLineShift,
-      whole: start === 0 && !cutShort && !trimmed.dropped,
-      mark: trimmed.mark,
-      /* A range was asked for and none of it survived to the screen. Different
-         from "nothing was selected", and the page says a different sentence. */
-      markLost: wanted !== null && trimmed.mark === null,
-      language: tongue(path),
-      hidden,
-    }
+    return shape(path, size, (into, length, position) => readSync(fd, into, 0, length, position), wanted, hidden)
   } catch {
     return { kind: 'refused', error: REFUSED }
   } finally {
     closeSync(fd)
+  }
+}
+
+/** Read `length` bytes at `position` into the start of `into`; answers how many came. */
+export type Pread = (into: Buffer, length: number, position: number) => number
+
+/**
+ * A file's contents held in memory — a blob read out of a commit rather than
+ * off the disk (`file/change.ts`) — shaped exactly as `open` shapes a file:
+ * the same window, the same caps, the same line numbers, the same mark.
+ */
+export function shapeBuffer(path: string, content: Buffer, wanted: Wanted | null, hidden = false): Seen {
+  return shape(
+    path,
+    content.length,
+    (into, length, position) => content.copy(into, 0, position, Math.min(content.length, position + length)),
+    wanted,
+    hidden,
+  )
+}
+
+/** The window onto `size` bytes that `pread` reads, as the page draws it. */
+function shape(path: string, size: number, pread: Pread, wanted: Wanted | null, hidden: boolean): Seen {
+  if (size === 0) {
+    return {
+      kind: 'text',
+      path,
+      size: 0,
+      read: 0,
+      at: 0,
+      text: '',
+      firstLine: 1,
+      whole: true,
+      mark: null,
+      markLost: wanted !== null,
+      language: tongue(path),
+      hidden,
+    }
+  }
+
+  const sniff = Buffer.alloc(Math.min(size, SNIFF_BYTES))
+  pread(sniff, sniff.length, 0)
+  if (binary(sniff)) return { kind: 'binary', path, size, looks: looksLike(path), hidden }
+
+  const start = anchor(pread, size, wanted)
+  const length = Math.min(MAX_BYTES, size - start)
+  let window = Buffer.alloc(length)
+  pread(window, length, start)
+
+  /*
+   * A window that stopped short of the end is trimmed back to the last
+   * newline, so the bottom of the view is a whole line rather than however
+   * many characters were left in the budget.
+   *
+   * Unless there is no newline in it at all, which is what a minified bundle
+   * looks like: 256 KiB of one line. Trimming that to the last newline would
+   * leave nothing, and answering an empty document for a file that is plainly
+   * full is worse than showing a quarter of a very long line. The page wraps
+   * it and says how much is missing.
+   */
+  const cutShort = start + length < size
+  if (cutShort) {
+    const lastBreak = window.lastIndexOf(0x0a)
+    if (lastBreak > 0) window = window.subarray(0, lastBreak)
+  }
+
+  let text = window.toString('utf8')
+  const read = window.length
+  /*
+   * The trailing newline of a complete file is dropped, and it is not counted
+   * as something missing.
+   *
+   * A file that ends in a newline has, by every editor's reckoning, as many
+   * lines as it has newlines — not one more. Splitting the text as-is
+   * produces a final empty string, which draws as a phantom blank line at the
+   * bottom of every well-formed file in the project.
+   */
+  if (!cutShort && text.endsWith('\n')) text = text.slice(0, -1)
+
+  const mark = place(window, start, wanted, text.length)
+  const firstLine = 1 + newlinesBefore(pread, start)
+
+  const trimmed = capLines(text, mark)
+  /*
+   * The byte offset of the first line SHOWN, which is not the offset the read
+   * started at once lines have been dropped from the front.
+   *
+   * Measured rather than tracked, because the alternative is carrying a byte
+   * offset alongside a character offset through three transformations and
+   * having them agree. `Buffer.byteLength` over at most 256 KiB is cheap and
+   * cannot drift.
+   */
+  const shownAt = start + Buffer.byteLength(text.slice(0, trimmed.shift), 'utf8')
+
+  return {
+    kind: 'text',
+    path,
+    size,
+    read: trimmed.dropped ? Buffer.byteLength(trimmed.text, 'utf8') : read,
+    at: shownAt,
+    text: trimmed.text,
+    firstLine: firstLine + trimmed.firstLineShift,
+    whole: start === 0 && !cutShort && !trimmed.dropped,
+    mark: trimmed.mark,
+    /* A range was asked for and none of it survived to the screen. Different
+       from "nothing was selected", and the page says a different sentence. */
+    markLost: wanted !== null && trimmed.mark === null,
+    language: tongue(path),
+    hidden,
   }
 }
 
@@ -271,7 +294,7 @@ export function binary(chunk: Buffer): boolean {
  * the right trade: one ragged first line beats scanning backwards through a
  * minified bundle looking for a break that is not there.
  */
-function anchor(fd: number, size: number, wanted: Wanted | null): number {
+function anchor(pread: Pread, size: number, wanted: Wanted | null): number {
   if (!wanted || wanted.from < MAX_BYTES || wanted.from >= size) return 0
 
   const desired = Math.max(0, wanted.from - BYTE_LEAD)
@@ -279,7 +302,7 @@ function anchor(fd: number, size: number, wanted: Wanted | null): number {
 
   const probeAt = Math.max(0, desired - 4096)
   const probe = Buffer.alloc(desired - probeAt)
-  readSync(fd, probe, 0, probe.length, probeAt)
+  pread(probe, probe.length, probeAt)
   const lastBreak = probe.lastIndexOf(0x0a)
   return lastBreak === -1 ? desired : probeAt + lastBreak + 1
 }
@@ -387,14 +410,14 @@ function capLines(
  * that would have to allocate the forty megabytes this whole file is arranged to
  * avoid.
  */
-function newlinesBefore(fd: number, offset: number): number {
+function newlinesBefore(pread: Pread, offset: number): number {
   if (offset <= 0) return 0
   const chunk = Buffer.alloc(Math.min(offset, 1024 * 1024))
   let seen = 0
   let at = 0
   while (at < offset) {
     const want = Math.min(chunk.length, offset - at)
-    const got = readSync(fd, chunk, 0, want, at)
+    const got = pread(chunk, want, at)
     if (got <= 0) break
     for (let i = 0; i < got; i += 1) if (chunk[i] === 0x0a) seen += 1
     at += got
