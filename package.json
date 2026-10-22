@@ -1,6 +1,6 @@
 {
   "name": "kehikko-source",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "private": true,
   "type": "module",
   "description": "The file the canvas is pointed at, shown. Read-only: it opens what a passage names, highlights the range a passage carries, and cannot write a byte.",
