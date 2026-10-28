@@ -135,12 +135,12 @@ export const PREFERRED_PORT = 7980
  * by the passage and by what is on disk, and no paragraph changes what a file
  * says.
  *
- * ## The mode is epic-scoped, because the context only arrives there
+ * ## The mode, at `project`
  *
- * One mode, which becomes an ordinary tab in the mode row. `scope: 'epic'`
- * because an epic-scoped mode is the one that receives `kehikot.context` — and
- * the context is the only thing this module has. A `global` mode is never sent
- * one, which for this app means a container that can never learn what to show.
+ * One mode, at `project` (protocol 2.29.0): what it shows is the project's
+ * files and the code the canvas points at, whatever epic is open. A host sends
+ * `kehikot.context` to every container whatever its scope, and the context is
+ * the only thing this module has.
  *
  * ## Storage, and why a module that holds nothing still asks for it
  *
@@ -222,7 +222,10 @@ export const MANIFEST: Manifest = manifestSchema.parse({
     + 'points the canvas only when the person presses "Comment on this line" on a change’s file, which asks Review for a '
     + 'comment there. It follows a code location (context.location): to have it show a line of a change, set one.',
   entry: '/app',
-  modes: [{ id: 'source', label: 'Source', scope: 'epic' }],
+  /* What its content belongs to (protocol 2.29.0): one mode per scope, the default first. */
+  modes: [
+    { id: 'source', label: 'Source', scope: 'project', scopeSays: 'the files of this project and the changes picked out, whatever epic is open' },
+  ],
   mcp: {
     url: '/mcp',
     transport: 'http',
