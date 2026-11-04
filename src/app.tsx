@@ -11,6 +11,7 @@ import { useChange } from '@/use-change.ts'
 import { useSource } from '@/use-source.ts'
 import { Code } from '@/view/code.tsx'
 import { NOUN, anchorOf, inHand } from '@/view/focus.ts'
+import { FOOT, footerItems } from '@/view/footer.ts'
 import { label, room as measure } from '@/view/room.ts'
 import { Binary, EmptyFile, Folder, NoPassage, NoneInFocus, Trouble } from '@/view/screens.tsx'
 
@@ -74,7 +75,11 @@ export function App() {
   /* The protocol's host hook: where the page stands, the theme on `<html>`, the flattened context.
      The passage is applied on every context including when it is null, and never remembered: a
      container that held onto the last one would go on showing a file the reader closed. */
-  const { where, projectPath, passage, parts, epic, resize, location, selection, request, locate, context } = useHost(ID, { onGoto })
+  /* A press on the footer (2.38.0): Comment and Selection, the same as the page's own buttons. Read
+     through a ref, so the handler given to the host never goes stale. */
+  const pressRef = useRef<(item: string) => string | void>(() => undefined)
+  const onPress = useCallback<NonNullable<HostEvents['onPress']>>(({ item }) => pressRef.current(item), [])
+  const { where, projectPath, passage, parts, epic, resize, location, selection, request, locate, context, footer, drawsFooter } = useHost(ID, { onGoto, onPress })
   /* How this page's own server last answered: `down` when nothing did, `stale` when it restarted under this page. */
   const server = useServerStanding()
 
@@ -229,6 +234,63 @@ export function App() {
    * There is no press on any of them, deliberately: a box to type a path into would make this a
    * viewer that can disagree with the canvas about which file is open.
    */
+  /*
+   * The footer the host draws, when it draws one (2.38.0): the file's name, `private`, the notice,
+   * Comment and Selection, in one row along the bottom of the container. The page then draws
+   * neither its own strip above the code nor the notice below it. An older host draws no footer and
+   * the page draws both, as before.
+   */
+  const footed = where === 'hosted' && drawsFooter === true
+  const toMark = () => scroller.current?.querySelector('[data-tinted], [data-marked]')?.scrollIntoView({ block: 'center' })
+  pressRef.current = (item) => {
+    if (item === FOOT.COMMENT) {
+      if (!target || !commit || !lines) return 'Pick lines in a change’s file to comment on.'
+      void comment(lines.from, lines.to)
+      return
+    }
+    if (item === FOOT.TO_MARK) {
+      toMark()
+      return
+    }
+    return `Source has nothing called "${item.slice(0, 40)}" to press.`
+  }
+  const showing = Boolean((passage || target) && !trouble && text && !narrowed.empty && seen?.kind === 'text')
+  const notice = !showing || !text
+    ? null
+    : said
+      ? said
+      : text.markLost
+        ? target
+          ? 'That line is not in what this shows of the file at this commit.'
+          : 'The selection is outside what this shows.'
+        : !text.whole
+          ? `${bytes(text.read)} of ${bytes(text.size)}, from line ${text.firstLine.toLocaleString()}.`
+          : null
+  const footName = !showing || !text ? '' : target ? changeHeader(target, commit) : projectPath ? label(text.path, projectPath, 'path') : ''
+  const footWhole = !showing || !text
+    ? ''
+    : target
+      ? `${changeHeader(target, commit)}\n${target.side === 'old' ? 'Before the change (its base)' : 'As the change has it (its head)'}${commit ? `, commit ${commit}` : ''}`
+      : text.path
+  const footerSaid = footed
+    ? JSON.stringify(
+        showing && text
+          ? footerItems({
+              name: footName,
+              whole: footWhole,
+              hidden: Boolean(text.hidden),
+              notice,
+              noticeIsTrouble: Boolean(said),
+              lines: target && commit && lines ? lines : null,
+              marked: Boolean(text.mark || markLines),
+            })
+          : [],
+      )
+    : null
+  useEffect(() => {
+    if (footerSaid) footer(JSON.parse(footerSaid))
+  }, [footer, footerSaid])
+
   const ready: CoverState | null = coverFor({ where, projectPath, server })
   const cover = ready === 'down' && !passage && !target ? null : ready
   if (cover && cover !== 'down') return <Cover state={cover} name="Source" />
@@ -272,7 +334,7 @@ export function App() {
        * already knows. The whole path is in a `title` for the case where it does
        * not.
        */}
-      {room.header ? (
+      {room.header && !footed ? (
         <div className="flex min-w-0 shrink-0 items-baseline gap-2 border-b px-2 py-1">
           {/* The name, and its whole path one hover away. Nothing here is about the picked parts of the
               epic: the file is in hand and is drawn the same whatever is picked. */}
@@ -317,7 +379,7 @@ export function App() {
               size="container"
               variant="ghost"
               data-testid="to-mark"
-              onClick={() => scroller.current?.querySelector('[data-tinted], [data-marked]')?.scrollIntoView({ block: 'center' })}
+              onClick={toMark}
             >
               selection
             </Button>
@@ -352,7 +414,7 @@ export function App() {
        * would be a request for forty megabytes to draw twelve lines from. A file
        * that large is one to search rather than to read.
        */}
-      {said || !text.whole || text.markLost ? (
+      {!footed && (said || !text.whole || text.markLost) ? (
         <p data-testid="notice" className="min-w-0 shrink-0 border-t px-2 py-0.5 text-[0.65rem] text-muted-foreground">
           {said
             ? said
