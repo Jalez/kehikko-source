@@ -292,6 +292,40 @@ describe('the not-ready moments, each as the one shared cover', () => {
     expect(scroller.closest('[hidden]')).not.toBeNull()
   })
 
+  test('a host that does not draw the footer is sent none', async () => {
+    const footers: unknown[] = []
+    const hear = (event: MessageEvent) => {
+      if (event.data?.type === 'kehikot.footer') footers.push(event.data.items)
+    }
+    window.addEventListener('message', hear)
+    try {
+      render(<App />)
+      await greet({ project: 'p', projectPath: '/tmp/p', passage })
+      await settle(30)
+      expect(footers).toHaveLength(0)
+    } finally {
+      window.removeEventListener('message', hear)
+    }
+  })
+
+  test('a host that draws the footer gets the file’s name there, and the page draws no strip of its own', async () => {
+    const footers: unknown[] = []
+    const hear = (event: MessageEvent) => {
+      if (event.data?.type === 'kehikot.footer') footers.push(event.data.items)
+    }
+    window.addEventListener('message', hear)
+    try {
+      render(<App />)
+      await post({ type: 'kehikot.hello', session: 's', state: null, footer: true, context: context({ project: 'p', projectPath: '/tmp/p', passage }) })
+      await settle(30)
+      expect(footers.at(-1)).toEqual([expect.objectContaining({ kind: 'text', id: 'file', text: 'a.ts' })])
+      expect(screen.queryByTestId('name')).toBeNull()
+      expect(screen.getByTestId('scroller')).toBeDefined()
+    } finally {
+      window.removeEventListener('message', hear)
+    }
+  })
+
   describe('with parts picked in the host’s bar', () => {
     const DIR = '/tmp/p/.kehikot/paper/thesis'
     const pointed = { ...passage, path: `${DIR}/chapters/3_methods.tex` }
