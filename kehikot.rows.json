@@ -1,0 +1,147 @@
+[
+  {
+    "name": "a file",
+    "footer": [
+      {
+        "kind": "text",
+        "id": "file",
+        "text": "src/app.tsx",
+        "level": "normal",
+        "align": "start",
+        "optional": false,
+        "tooltip": "/project/src/app.tsx"
+      }
+    ],
+    "state": true
+  },
+  {
+    "name": "a passage marked in a file cut short",
+    "footer": [
+      {
+        "kind": "text",
+        "id": "file",
+        "text": "src/app.tsx",
+        "level": "normal",
+        "align": "start",
+        "optional": false,
+        "tooltip": "/project/src/app.tsx"
+      },
+      {
+        "kind": "text",
+        "id": "notice",
+        "text": "2 MB of 40 MB, from line 1.",
+        "level": "normal",
+        "align": "center",
+        "optional": true,
+        "tooltip": "2 MB of 40 MB, from line 1."
+      },
+      {
+        "kind": "run",
+        "id": "to-mark",
+        "label": "Selection",
+        "agents": false,
+        "state": "idle",
+        "result": null,
+        "disabled": null,
+        "confirm": false,
+        "align": "end",
+        "optional": true,
+        "tooltip": "Scroll back to the selection"
+      }
+    ],
+    "state": true
+  },
+  {
+    "name": "a change’s file agents are refused, lines picked",
+    "footer": [
+      {
+        "kind": "text",
+        "id": "file",
+        "text": "!12 · src/app.tsx",
+        "level": "normal",
+        "align": "start",
+        "optional": false,
+        "tooltip": "!12 · src/app.tsx\nAs the change has it (its head), commit abc1234\nAgents cannot read this file."
+      },
+      {
+        "kind": "text",
+        "id": "private",
+        "text": "private",
+        "level": "normal",
+        "align": "start",
+        "optional": true,
+        "tooltip": "Agents cannot read this file."
+      },
+      {
+        "kind": "run",
+        "id": "comment",
+        "label": "Comment on lines 3–7",
+        "icon": "pencil",
+        "agents": false,
+        "state": "idle",
+        "result": null,
+        "disabled": null,
+        "confirm": false,
+        "align": "end",
+        "optional": false,
+        "tooltip": "Ask for a review comment on the picked lines"
+      },
+      {
+        "kind": "run",
+        "id": "to-mark",
+        "label": "Selection",
+        "agents": false,
+        "state": "idle",
+        "result": null,
+        "disabled": null,
+        "confirm": false,
+        "align": "end",
+        "optional": true,
+        "tooltip": "Scroll back to the selection"
+      }
+    ],
+    "state": true
+  },
+  {
+    "name": "a comment the host did not take",
+    "footer": [
+      {
+        "kind": "text",
+        "id": "file",
+        "text": "src/app.tsx",
+        "level": "normal",
+        "align": "start",
+        "optional": false,
+        "tooltip": "/project/src/app.tsx"
+      },
+      {
+        "kind": "text",
+        "id": "notice",
+        "text": "The host did not take it.",
+        "level": "warn",
+        "align": "center",
+        "optional": false,
+        "tooltip": "The host did not take it."
+      },
+      {
+        "kind": "run",
+        "id": "comment",
+        "label": "Comment on this line",
+        "icon": "pencil",
+        "agents": false,
+        "state": "idle",
+        "result": null,
+        "disabled": null,
+        "confirm": false,
+        "align": "end",
+        "optional": false,
+        "tooltip": "Ask for a review comment on the picked lines"
+      }
+    ],
+    "state": true
+  },
+  {
+    "name": "nothing shown",
+    "footer": []
+  }
+]

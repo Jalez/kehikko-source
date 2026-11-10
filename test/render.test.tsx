@@ -292,6 +292,62 @@ describe('the not-ready moments, each as the one shared cover', () => {
     expect(scroller.closest('[hidden]')).not.toBeNull()
   })
 
+  /* 2.70.0: the host holds its cover until the page says it is drawn. Said once, after the first
+     answer is on screen, and not while the file is still being read. */
+  const drawnSaid = () => {
+    const said: number[] = []
+    const hear = (event: MessageEvent) => {
+      if (event.data?.type === 'kehikot.drawn') said.push(1)
+    }
+    window.addEventListener('message', hear)
+    return { said, stop: () => window.removeEventListener('message', hear) }
+  }
+
+  test('says it is drawn once, when the file is on screen, and the code is the scroller the host keeps', async () => {
+    let release: () => void = () => {}
+    const gate = new Promise<void>((resolve) => (release = resolve))
+    const served = globalThis.fetch
+    globalThis.fetch = (async (url: unknown) => {
+      await gate
+      return served(url as string)
+    }) as unknown as typeof fetch
+    const heard = drawnSaid()
+    try {
+      render(<App />)
+      await greet({ project: 'p', projectPath: '/tmp/p', passage })
+      await settle(30)
+      /* Still reading: the host's cover stands in, and nothing is said. */
+      expect(heard.said).toHaveLength(0)
+      await act(async () => {
+        release()
+        await new Promise((resolve) => setTimeout(resolve, 30))
+      })
+      expect(screen.getAllByTestId('line')).toHaveLength(1)
+      await settle(30)
+      expect(heard.said).toHaveLength(1)
+      expect(screen.getByTestId('scroller').hasAttribute('data-kehikot-scroll')).toBe(true)
+      /* Another context, another file: said once, not again. */
+      await post({ type: 'kehikot.context', ...context({ project: 'p', projectPath: '/tmp/p', passage: { ...passage, path: '/tmp/p/b.ts' } }) })
+      await settle(30)
+      expect(heard.said).toHaveLength(1)
+    } finally {
+      heard.stop()
+    }
+  })
+
+  test('a sentence is an answer too: no passage says it is drawn', async () => {
+    const heard = drawnSaid()
+    try {
+      render(<App />)
+      await greet({ project: 'p', projectPath: '/tmp/p' })
+      await settle(30)
+      expect(screen.getByTestId('no-passage')).toBeTruthy()
+      expect(heard.said).toHaveLength(1)
+    } finally {
+      heard.stop()
+    }
+  })
+
   test('a host that does not draw the footer is sent none', async () => {
     const footers: unknown[] = []
     const hear = (event: MessageEvent) => {
