@@ -79,7 +79,7 @@ export function App() {
      through a ref, so the handler given to the host never goes stale. */
   const pressRef = useRef<(item: string) => string | void>(() => undefined)
   const onPress = useCallback<NonNullable<HostEvents['onPress']>>(({ item }) => pressRef.current(item), [])
-  const { where, projectPath, passage, parts, epic, resize, location, selection, request, locate, context, footer, drawsFooter } = useHost(ID, { onGoto, onPress })
+  const { where, projectPath, passage, parts, epic, resize, location, selection, request, locate, context, footer, drawsFooter, ready: drawnNow } = useHost(ID, { onGoto, onPress })
   /* How this page's own server last answered: `down` when nothing did, `stale` when it restarted under this page. */
   const server = useServerStanding()
 
@@ -293,6 +293,22 @@ export function App() {
 
   const ready: CoverState | null = coverFor({ where, projectPath, server })
   const cover = ready === 'down' && !passage && !target ? null : ready
+
+  /*
+   * The host's cover is held until this page says what it shows is drawn (protocol 2.70.0): once,
+   * when the first screen that is an answer is on it — the file, or one of the sentences, or a
+   * cover that is not a wait. While a file is still being read nothing is said, so the host's cover
+   * stands in for a "Reading…" this page never draws. Not gated on being visible: the host keeps a
+   * covered page hidden, and waiting for it to be shown would hold the cover for the whole timeout.
+   */
+  const reading = Boolean((passage || target) && !trouble && seen?.kind !== 'folder' && seen?.kind !== 'binary' && !narrowed.empty && !text)
+  const drawn = cover ? cover !== 'waiting' && cover !== 'loading' && cover !== 'stale' : !reading
+  const saidDrawn = useRef(false)
+  useEffect(() => {
+    if (!drawn || saidDrawn.current) return
+    saidDrawn.current = true
+    drawnNow()
+  }, [drawn, drawnNow])
   if (cover && cover !== 'down') return <Cover state={cover} name="Source" />
 
   const shown = target ? changeHeader(target, commit) : text && projectPath ? label(text.path, projectPath, room.name) : ''
@@ -387,7 +403,7 @@ export function App() {
         </div>
       ) : null}
 
-      <div ref={scroller} data-testid="scroller" className="min-h-0 min-w-0 flex-1 overflow-y-auto px-2 py-1">
+      <div ref={scroller} data-testid="scroller" data-kehikot-scroll="" className="min-h-0 min-w-0 flex-1 overflow-y-auto px-2 py-1">
         <Code
           text={text.text}
           language={text.language}

@@ -98,10 +98,12 @@ export const PREFERRED_PORT = 7980
  * - **`events:emit` — no, and `emits` is empty.** Nothing happens here that
  *   somebody would otherwise miss. A person who pointed the canvas at a file
  *   already knows they did.
- * - **`state:keep` — no.** What this container shows is entirely determined by
- *   the passage, and the passage arrives on every context. State restored from
- *   yesterday would be a container confidently showing a file the reader is not
- *   looking at, which is indistinguishable on screen from it being right.
+ * - **`state:keep` — for the view only.** What this container shows is entirely
+ *   determined by the passage, and the passage arrives on every context, so the
+ *   page keeps nothing of its own: state restored from yesterday would be a
+ *   container confidently showing a file the reader is not looking at. What the
+ *   host keeps is where the code was scrolled to (protocol 2.70.0's kept view, the
+ *   element marked `data-kehikot-scroll`), so the container opens where it was.
  *
  * ## `consumes` is empty, and it is not the field this module wishes it had
  *
@@ -243,10 +245,11 @@ export const MANIFEST: Manifest = manifestSchema.parse({
   reacts: ['passage', 'location', 'selection', 'parts'],
   declares: {
     protocol: `>=${PROTOCOL} <${PROTOCOL + 1}`,
-    /* Two, and the essay above is mostly about why there are not more: the
+    /* Three, and the essay above is mostly about why there are not more: the
        tracker reading, to know which picked ref is a change and where; and a
-       code location, sent on "Comment on this line" and nothing else. */
-    uses: ['trackers:read', 'location:set'],
+       code location, sent on "Comment on this line" and nothing else. And
+       where the code was scrolled to, kept by the host (`state:keep`). */
+    uses: ['trackers:read', 'location:set', 'state:keep'],
     storage: true,
     prompt: false,
   },

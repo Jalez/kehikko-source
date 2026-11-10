@@ -65,7 +65,7 @@ describe('what is not here', () => {
        on "Comment on this line" (1.2.0). If `passage:set` ever appears here, the
        question to answer first is what happens when the container next door
        disagrees about where the reader is. */
-    expect(MANIFEST.declares.uses).toEqual(['trackers:read', 'location:set'])
+    expect(MANIFEST.declares.uses).toEqual(['trackers:read', 'location:set', 'state:keep'])
     expect(MANIFEST.declares.uses).not.toContain('passage:set')
     expect(MANIFEST.declares.uses).not.toContain('selection:set')
   })
