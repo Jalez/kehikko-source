@@ -158,6 +158,8 @@ function Row({
       {gutter ? (
         <span
           aria-hidden
+          /* A line's number is not the file's text: the host's find bar (protocol 2.69.0) skips it. */
+          data-kehikot-find-skip=""
           className="inline-block shrink-0 select-none pr-2 text-right tabular-nums text-muted-foreground/70"
           style={{ width: `${gutter + 1}ch` }}
         >
