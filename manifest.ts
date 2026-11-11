@@ -221,7 +221,7 @@ export const MANIFEST: Manifest = manifestSchema.parse({
     + `question is what the PERSON can see: it applies this container's own bounds (${bytes(MAX_BYTES)}, first line `
     + 'numbered as it really is) and returns exactly what is on their screen, which is what to reference when you '
     + 'talk to them about a line. This module writes nothing: it cannot edit, save, create, rename or delete, and it '
-    + 'points the canvas only when the person presses "Comment on this line" on a change’s file, which asks Review for a '
+    + 'points the canvas only when the person presses "Comment on this line" on a change’s file, which asks a review module for a '
     + 'comment there. It follows a code location (context.location): to have it show a line of a change, set one.',
   entry: '/app',
   /* What its content belongs to (protocol 2.29.0): one mode per scope, the default first. */
