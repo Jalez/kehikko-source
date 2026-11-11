@@ -462,7 +462,7 @@ export function App() {
       {cover === 'down' ? <Cover state="down" name="Source" onRetry={retry} /> : null}
       {/* Kept mounted under the cover, so the file that was on screen and where it was scrolled
           to are still there when the server answers again. */}
-      <div hidden={cover === 'down'} className="h-full min-w-0">
+      <div data-kehikot-page hidden={cover === 'down'} className="h-full min-w-0">
         {screen}
       </div>
     </>
