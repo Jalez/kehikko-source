@@ -226,7 +226,7 @@ describe('the not-ready moments, each as the one shared cover', () => {
     expect(document.body.textContent).not.toContain('No project')
     await settle(800)
     expect(cover()?.getAttribute('data-cover')).toBe('unhosted')
-    expect(document.body.textContent).toContain('Nothing is framing this page — open Source in Kehikot.')
+    expect(document.body.textContent).toContain('Nothing is framing this page — open File Viewer in Kehikot.')
     /* No path box and nothing to press: this viewer shows what the canvas points at and nothing else. */
     expect(screen.queryByRole('textbox')).toBeNull()
     expect(within(cover() as HTMLElement).queryAllByRole('button')).toHaveLength(0)
@@ -267,7 +267,7 @@ describe('the not-ready moments, each as the one shared cover', () => {
     render(<App />)
     await greet({ project: 'p', projectPath: '/tmp/p', passage })
     expect(cover()?.getAttribute('data-cover')).toBe('down')
-    expect(document.body.textContent).toContain('Source’s own server is not answering.')
+    expect(document.body.textContent).toContain('File Viewer’s own server is not answering.')
     /* Not the red sentence: nothing is wrong with the file, and nothing has been said about it. */
     expect(screen.queryByTestId('trouble')).toBeNull()
     down = false

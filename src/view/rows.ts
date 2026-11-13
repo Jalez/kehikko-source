@@ -1,11 +1,11 @@
 import { footerItems, type FooterState } from './footer.ts'
 
 /**
- * The rows Source declares, one state per moment worth checking, for `kehikot-check-rows`
+ * The rows File Viewer declares, one state per moment worth checking, for `kehikot-check-rows`
  * (protocol 2.70.0). Built from the real footer function, so `kehikot.rows.json` (written by
  * `bun run rows`, held equal to this by `test/rows.test.ts`) cannot drift from what the page sends.
  *
- * No header in any of them: Source declares none. Nothing in it is a choice about how the module is
+ * No header in any of them: File Viewer declares none. Nothing in it is a choice about how the module is
  * set up — it shows the file the canvas points at, and there is no second answer to pick. Everything
  * it has is where you are and what is going on now, which is the footer's.
  */
