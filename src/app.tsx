@@ -252,7 +252,7 @@ export function App() {
       toMark()
       return
     }
-    return `Source has nothing called "${item.slice(0, 40)}" to press.`
+    return `File Viewer has nothing called "${item.slice(0, 40)}" to press.`
   }
   const showing = Boolean((passage || target) && !trouble && text && !narrowed.empty && seen?.kind === 'text')
   const notice = !showing || !text
@@ -309,7 +309,7 @@ export function App() {
     saidDrawn.current = true
     drawnNow()
   }, [drawn, drawnNow])
-  if (cover && cover !== 'down') return <Cover state={cover} name="Source" />
+  if (cover && cover !== 'down') return <Cover state={cover} name="File Viewer" />
 
   const shown = target ? changeHeader(target, commit) : text && projectPath ? label(text.path, projectPath, room.name) : ''
   const whole = target
@@ -459,7 +459,7 @@ export function App() {
   return (
     <>
       {/* Nothing answered the last read. Try again asks for the same file again. */}
-      {cover === 'down' ? <Cover state="down" name="Source" onRetry={retry} /> : null}
+      {cover === 'down' ? <Cover state="down" name="File Viewer" onRetry={retry} /> : null}
       {/* Kept mounted under the cover, so the file that was on screen and where it was scrolled
           to are still there when the server answers again. */}
       <div data-kehikot-page hidden={cover === 'down'} className="h-full min-w-0">

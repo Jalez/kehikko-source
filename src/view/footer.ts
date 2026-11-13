@@ -1,11 +1,11 @@
 import { LIMITS, footerItemsSchema, type FooterItem } from 'kehikot-module-protocol'
 
 /**
- * Source's footer, in a host that draws one (`kehikot.footer`, protocol 2.38.0): where you are in
+ * File Viewer's footer, in a host that draws one (`kehikot.footer`, protocol 2.38.0): where you are in
  * what the canvas points at, and the two presses that act on it. It is the strip the page drew
  * along the top of the code (the file's name, "private", Comment, selection) and the notice along
  * its bottom (what was left out, or what the host said to a comment), in one row the host draws.
- * Source has no header: nothing in it is a choice about how the module is set up.
+ * File Viewer has no header: nothing in it is a choice about how the module is set up.
  *
  * - the file: its path in the project, or the change and side it was read from; the whole of it in
  *   the tooltip;

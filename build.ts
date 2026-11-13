@@ -14,5 +14,5 @@ import { PAGE_HEAD } from './page.ts'
  * from a checkout with no changes to tracked files; an edited checkout's build
  * is not stamped, and `run.sh` keeps Vite for it.
  */
-const built = await buildModule({ dir: import.meta.dirname, page: { title: 'Source', head: PAGE_HEAD } })
+const built = await buildModule({ dir: import.meta.dirname, page: { title: 'File Viewer', head: PAGE_HEAD } })
 if (!built.stamped) process.exitCode = 2

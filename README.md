@@ -1,4 +1,4 @@
-# Source
+# File Viewer
 
 The file the canvas is pointed at, shown.
 

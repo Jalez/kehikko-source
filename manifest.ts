@@ -191,7 +191,7 @@ export const MANIFEST: Manifest = manifestSchema.parse({
   kind: MANIFEST_KIND,
   protocol: PROTOCOL,
   id: ID,
-  name: 'Source',
+  name: 'File Viewer',
   /* The icon a host draws beside the name: a key of the protocol's module icons, never a path
      or URL; the same key Kehikot's official list gives it. */
   icon: 'lucide:file-code',
@@ -216,7 +216,7 @@ export const MANIFEST: Manifest = manifestSchema.parse({
    * protocol.
    */
   guidance:
-    'Source is the container the person is reading a file in. It follows the canvas passage and shows nothing else. '
+    'File Viewer is the container the person is reading a file in. It follows the canvas passage and shows nothing else. '
     + 'Use your own file reader for file contents — it is faster and has no ceiling. Call `shown` only when the '
     + `question is what the PERSON can see: it applies this container's own bounds (${bytes(MAX_BYTES)}, first line `
     + 'numbered as it really is) and returns exactly what is on their screen, which is what to reference when you '
@@ -226,12 +226,12 @@ export const MANIFEST: Manifest = manifestSchema.parse({
   entry: '/app',
   /* What its content belongs to (protocol 2.29.0): one mode per scope, the default first. */
   modes: [
-    { id: 'source', label: 'Source', scope: 'project', scopeSays: 'the files of this project and the changes picked out, whatever epic is open' },
+    { id: 'source', label: 'File Viewer', scope: 'project', scopeSays: 'the files of this project and the changes picked out, whatever epic is open' },
   ],
   mcp: {
     url: '/mcp',
     transport: 'http',
-    about: 'What the Source container on the canvas is showing of a file, with its bounds and its line numbers.',
+    about: 'What the File Viewer container on the canvas is showing of a file, with its bounds and its line numbers.',
   },
   extensions: { emits: [], consumes: [] },
   /**

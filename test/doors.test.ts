@@ -246,7 +246,7 @@ describe('/mcp', () => {
     forgetKnown()
     const refused = await shown({ projectPath: root, path: 'a.ts' })
     expect(refused.isError).toBe(true)
-    expect(refused.text).toContain('open in the host with the Source container on its canvas')
+    expect(refused.text).toContain('open in the host with the File Viewer container on its canvas')
     expect(refused.text).not.toContain('const a = 1')
     /* A read that did not carry the page's ticket does not make it known. */
     await get('/api/source', { projectPath: root, path: 'a.ts' }, 'not-the-ticket')
@@ -329,7 +329,7 @@ describe('/mcp', () => {
  * the page reads it — rather than the protocol's own behaviour, which its own tests cover.
  */
 describe('served through the protocol’s doors', () => {
-  const handler = doorsHandler({ manifest: MANIFEST, answer, build: BUILD, page: { title: 'Source', head: '<style>html, body, #root { height: 100%; }</style>' } })
+  const handler = doorsHandler({ manifest: MANIFEST, answer, build: BUILD, page: { title: 'File Viewer', head: '<style>html, body, #root { height: 100%; }</style>' } })
   const get = (url: string) =>
     new Promise<{ status: number; headers: Record<string, string>; text: string }>((resolve, reject) => {
       const headers: Record<string, string> = {}
@@ -348,7 +348,7 @@ describe('served through the protocol’s doors', () => {
     expect(page.status).toBe(200)
     expect(page.headers['cache-control']).toBe('no-store')
     expect(page.headers['content-security-policy']).toContain('frame-ancestors')
-    expect(page.text).toContain('<title>Source</title>')
+    expect(page.text).toContain('<title>File Viewer</title>')
     expect(page.text).toContain('#root { height: 100%; }')
     expect(page.text).toContain('<script id="build" type="application/json">')
     /* No writes, so no ticket: there is nothing for one to gate. */

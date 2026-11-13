@@ -73,7 +73,7 @@ export default defineConfig({
   base: './',
   plugins: [
     serves({ id: ID, prefer: PREFERRED_PORT }),
-    doors({ manifest: MANIFEST, answer, build: BUILD, page: { title: 'Source', head: PAGE_HEAD, ticket: TICKET } }),
+    doors({ manifest: MANIFEST, answer, build: BUILD, page: { title: 'File Viewer', head: PAGE_HEAD, ticket: TICKET } }),
     react(),
     tailwindcss(),
   ],

@@ -96,7 +96,7 @@ const NO_ROOT_AGENT = DOOR_PROJECT_SAYS.unnamed
 const NOT_READ_AGENT =
   ' This app shows a file of a project once its own page has been opened on it (or when it is inside the directories '
   + 'its operator listed), and never takes a home folder or a whole disk as a project. Send project as the absolute '
-  + 'directory of a project that is open in the host with the Source container on its canvas.'
+  + 'directory of a project that is open in the host with the File Viewer container on its canvas.'
 const NOT_A_PROJECT_PAGE =
   'That folder is not shown as a project. This app shows files of a project folder — never of a home folder or a '
   + 'whole disk as such — and, when its operator has listed directories, only what is inside them.'
@@ -167,7 +167,7 @@ function tools() {
     {
       name: 'shown',
       description:
-        'What the Source container on the canvas is showing of a file, with this container’s own bounds applied. '
+        'What the File Viewer container on the canvas is showing of a file, with this container’s own bounds applied. '
         + 'This is NOT the tool for reading a file — use your own reader, which is faster and unbounded. Use this when '
         + 'the question is what the person can see: it caps at '
         + `${bytes(MAX_BYTES)} and ${MAX_LINES.toLocaleString()} lines, numbers lines as they really are in the file, `
