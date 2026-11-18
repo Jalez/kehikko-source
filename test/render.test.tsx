@@ -255,7 +255,7 @@ describe('the not-ready moments, each as the one shared cover', () => {
     render(<App />)
     await greet({ project: 'p', projectPath: '/tmp/p', passage })
     expect(cover()).toBeNull()
-    expect(asked).toEqual(['./api/source?projectPath=%2Ftmp%2Fp&path=%2Ftmp%2Fp%2Fa.ts'])
+    expect(asked).toEqual(['/api/source?projectPath=%2Ftmp%2Fp&path=%2Ftmp%2Fp%2Fa.ts'])
     /* The host rebroadcasts a fresh, identical passage object every couple of seconds. */
     await post({ type: 'kehikot.context', ...context({ project: 'p', projectPath: '/tmp/p', passage: { ...passage } }) })
     await post({ type: 'kehikot.context', ...context({ project: 'p', projectPath: '/tmp/p', passage: { ...passage } }) })
